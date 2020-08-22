@@ -5,7 +5,7 @@ all: ../../../$(BINDIR)/Rblas.dll
 
 ## suppress lots of warnings: this is a dummy
 blas00.o: blas00.c
-	$(CC) -O3 -I../../include  -c $< -o $@
+	$(CC) -O2 -I../../include  -c $< -o $@
 
 ## Rblas.dll imports xerbla_ from R.dll
 ifeq "$(USE_ATLAS)" "YES"

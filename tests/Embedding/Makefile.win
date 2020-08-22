@@ -4,7 +4,7 @@ include ../../src/gnuwin32/MkRules
 PROGRAMS = Rtest.exe Rplot.exe Rpostscript.exe Rerror.exe RNamedCall.exe RParseEval.exe Rpackage.exe tryEval.exe
 
 R_CMD_LINK= $(CC)
-CFLAGS = -I../../include -O3 -Wall -pedantic
+CFLAGS = -I../../include -O2 -Wall -pedantic
 LIBR = -L../../$(IMPDIR) -lR
 R_EXE = R_HOME=../..
 
