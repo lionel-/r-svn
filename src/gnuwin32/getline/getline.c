@@ -35,7 +35,11 @@ extern Rboolean mbcslocale;
 
 #include <string.h>
 #include <ctype.h>
+#ifdef __MINGW64__
+#include <setjmpex.h>
+#else
 #include <setjmp.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <io.h>

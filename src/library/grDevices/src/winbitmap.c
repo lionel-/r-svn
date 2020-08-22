@@ -38,8 +38,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __MINGW64__
+#include <setjmpex.h>
+#else
 #include <setjmp.h>
-
+#endif
 /* 8 bits red, green and blue channel */
 #define DECLARESHIFTS int RSHIFT=(bgr)?0:16, GSHIFT=8, BSHIFT=(bgr)?16:0
 #define GETRED(col)    (((col) >> RSHIFT) & 0xFF)

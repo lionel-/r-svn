@@ -28,8 +28,11 @@
 
 #include <stdlib.h>
 #include <errno.h>
+#ifdef __MINGW64__
+#include <setjmpex.h>
+#else
 #include <setjmp.h>
-
+#endif
 #define	SIGHUP	1	/* hangup */
 #define	SIGINT	2	/* interrupt */
 #define	SIGQUIT	3	/* quit */
