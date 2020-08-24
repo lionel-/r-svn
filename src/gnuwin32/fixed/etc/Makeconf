@@ -5,7 +5,7 @@
 
 ifdef DEBUG
   DLLFLAGS=
-  DEBUGFLAG=-gdwarf-2
+  DEBUGFLAG=-g
 else
   DLLFLAGS=-s
   DEBUGFLAG=
