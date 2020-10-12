@@ -107,7 +107,7 @@ Function InstallMiktex {
   initexmf --admin --set-config-value "[MPM]AutoInstall=1"
 
   Write-Host "Installing CTAN packages"
-  mpm --admin --set-repository=https://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
+  mpm --admin --set-repository=http://ctan.math.illinois.edu/systems/win32/miktex/tm/packages/
   mpm --admin --verbose --update-db
   mpm --admin --verbose --update
   mpm --admin --install=inconsolata
