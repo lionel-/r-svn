@@ -167,6 +167,10 @@ jobs:
         InstallRtoolsExe
         InstallMiktex -ErrorAction SilentlyContinue;
 
+    - name: Update Rtools40 libraries
+      run: pacman -Syu --noconfirm
+      shell: c:\rtools40\usr\bin\bash.exe --login {0}
+
     - name: "Fix rsync-recommended"
       shell: bash
       run: sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
