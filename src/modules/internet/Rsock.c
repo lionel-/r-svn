@@ -405,19 +405,21 @@ int R_SockConnect(int port, char *host, int timeout)
     struct hostent *hp;
 
     check_init();
-    s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (R_invalid_socket(s))  return -1;
 
 #define CLOSE_N_RETURN(_ST_) { R_close_socket(s); return(_ST_); }
-
-    if (R_set_nonblocking(s))
-	return -1;
 
     if (! (hp = R_gethostbyname(host))) CLOSE_N_RETURN(-1);
 
     memcpy((char *)&server.sin_addr, hp->h_addr_list[0], hp->h_length);
     server.sin_port = htons((short)port);
-    server.sin_family = AF_INET;
+    server.sin_family = hp->h_addrtype;
+
+    s = socket(hp->h_addrtype, SOCK_STREAM, IPPROTO_TCP);
+    if (R_invalid_socket(s))  return -1;
+
+    if (R_set_nonblocking(s))
+	return -1;
+
 
     if (R_socket_error(connect(s, (struct sockaddr *) &server,
                                sizeof(server)))) {
