@@ -210,7 +210,7 @@ makePSOCKcluster <- function(names, ...)
                 stop(msg)
             }
             a <- socketSelect(append(list(socket), cons), FALSE,
-                              timeout = setup_timeout)
+                              timeout = 0.5)
             canAccept <- a[1]
             canReceive <- seq_along(pending)[a[-1]]
 
