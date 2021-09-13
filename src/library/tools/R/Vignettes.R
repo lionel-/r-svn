@@ -1330,6 +1330,10 @@ function(pkgdir, mustwork = TRUE)
     }
     pkgs <- unique(c(pkgs, "utils"))
 
+    # Skip packages providing their own VignetteEngine
+    package <- .get_package_metadata(pkgdir)["Package"]
+    pkgs <- setdiff(pkgs, package)
+
     for (pkg in pkgs) {
 	res <- tryCatch(suppressPackageStartupMessages(loadNamespace(pkg)),
                         error = identity)
