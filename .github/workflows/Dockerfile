@@ -1,11 +1,8 @@
 FROM ubuntu:latest
 
-COPY . /r-source
-
 ENV DEBIAN_FRONTEND noninteractive
 ENV R_CRAN_WEB https://cran.rstudio.com
 ENV CRAN_RSYNC mirrors.nic.cz::CRAN
-PDFLATEX=/r-source/.github/workflows/dummy
 
 RUN apt-get update -y &&\
     apt-get install -y gcc wget locales git rsync gfortran xvfb pkg-config texinfo tk8.6-dev \
@@ -14,13 +11,14 @@ RUN apt-get update -y &&\
 
 ENV LANG en_US.UTF-8
 
-WORKDIR /r-source
+RUN \
+    sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in &&\
+    ./.github/workflows/svn-info.sh &&\
+    ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --without-recommended-packages
 
-RUN ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --without-recommended-packages
-
-RUN make --jobs=4
+RUN make --jobs=2
 
 RUN \
-  xvfb-run make check-all || CHECK_FAIL=1 &&\
-  find tests -name '*.fail' | while read f; do echo "::group::$f"; echo " ===== $f ====="; tail -n200 $f; echo "::endgroup::"; done &&\
-  exit $CHECK_FAIL
+    PDFLATEX="${PWD}/.github/workflows/dummy" xvfb-run make check-all || CHECK_FAIL=1 &&\
+    find tests -name '*.fail' | while read f; do echo "::group::$f"; echo " ===== $f ====="; tail -n200 $f; echo "::endgroup::"; done &&\
+    exit $CHECK_FAIL

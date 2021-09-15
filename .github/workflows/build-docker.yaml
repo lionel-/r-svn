@@ -17,11 +17,6 @@ jobs:
         with:
           fetch-depth: 100
 
-      - name: Prepare
-        run: |
-          sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in
-          ./.github/workflows/svn-info.sh
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
