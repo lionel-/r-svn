@@ -16,6 +16,7 @@ ENV LANG en_US.UTF-8
 
 RUN \
     sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in &&\
+    sed -i.bak 's|timeout = 30|timeout = 90|' tests/reg-packages.R &&\
     ./.github/workflows/svn-info.sh &&\
     ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --without-recommended-packages
 
@@ -23,5 +24,5 @@ RUN make --jobs=2
 
 RUN \
     PDFLATEX="${PWD}/.github/workflows/dummy" xvfb-run make check-all || CHECK_FAIL=1 &&\
-    find tests -name '*.fail' | while read f; do echo "::group::$f"; echo " ===== $f ====="; tail -n200 $f; echo "::endgroup::"; done &&\
+    find tests -name '*.fail' | while read f; do echo " ===== ERROR LOG: $f ====="; tail -n100 $f; echo " ===== END OF: $f ====="; done &&\
     exit $CHECK_FAIL
