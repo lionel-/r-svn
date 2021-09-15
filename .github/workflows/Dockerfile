@@ -16,12 +16,10 @@ ENV LANG en_US.UTF-8
 
 WORKDIR /r-source
 
-RUN ./configure --enable-R-shlib --with-blas --with-lapack --disable-java
+RUN ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --without-recommended-packages
 
 RUN make
 
 RUN xvfb-run make check-all
 
 RUN tail -n100 tests/*.fail || true
-
-

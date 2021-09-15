@@ -1,11 +1,15 @@
 on: [push, pull_request]
 
-name: Build in Docker
+name: Cross platform buildx
 
 jobs:
   linux:
-    name: Docker
+    name: buildx
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ amd64, arm64, riscv64, ppc64le, s390x, 386, mips64le, arm/v7 ]
     steps:
 
       - name: Checkout
@@ -16,7 +20,6 @@ jobs:
       - name: Prepare
         run: |
           sed -i.bak 's|$(GIT) svn info|./.github/workflows/svn-info.sh|' Makefile.in
-          ./.github/workflows/wget-recommended.sh
           ./.github/workflows/svn-info.sh
 
       - name: Set up QEMU
@@ -34,16 +37,13 @@ jobs:
           echo "Flags:     ${{ steps.buildx.outputs.flags }}"
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
 
-      - name: Available platforms
-        run: echo ${{ steps.buildx.outputs.platforms }}
-
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
         with:
           push: false
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{matrix.platform}}
           file: .github/workflows/Dockerfile
           tags: |
             ghcr.io/${{github.repository}}:latest
