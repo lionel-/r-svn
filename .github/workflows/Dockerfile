@@ -8,7 +8,7 @@ ENV CRAN_RSYNC mirrors.nic.cz::CRAN
 
 RUN set -e &&\
     apt-get update -y &&\
-    apt-get install -y gcc wget locales git rsync gfortran xvfb autoconf pkg-config texinfo texlive-latex-extra texlive-fonts-recommended tk8.6-dev \
+    apt-get install -y gcc wget locales git rsync gfortran xvfb pkg-config texinfo tk8.6-dev \
     libcurl4-openssl-dev libblas-dev libbz2-dev libicu-dev libjpeg-dev liblapack-dev liblzma-dev libncurses5-dev libpcre2-dev libpng-dev libreadline-dev libxt-dev \
     language-pack-en-base 
 
@@ -18,7 +18,7 @@ WORKDIR /r-source
 
 RUN ./configure --enable-R-shlib --with-blas --with-lapack --disable-java --without-recommended-packages
 
-RUN make
+RUN make --jobs=4
 
 RUN xvfb-run make check-all
 

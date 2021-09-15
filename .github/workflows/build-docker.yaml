@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ amd64, arm64, riscv64, ppc64le, s390x, 386, mips64le, arm/v7 ]
+        platform: [ amd64, arm64, riscv64, ppc64le, s390x, arm/v7 ]
     steps:
 
       - name: Checkout
