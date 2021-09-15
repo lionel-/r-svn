@@ -5,6 +5,7 @@ COPY . /r-source
 ENV DEBIAN_FRONTEND noninteractive
 ENV R_CRAN_WEB https://cran.rstudio.com
 ENV CRAN_RSYNC mirrors.nic.cz::CRAN
+PDFLATEX=/r-source/.github/workflows/dummy
 
 RUN apt-get update -y &&\
     apt-get install -y gcc wget locales git rsync gfortran xvfb pkg-config texinfo tk8.6-dev \
