@@ -43,7 +43,7 @@ jobs:
         with:
           push: false
           context: .
-          platforms: ${{matrix.platform}}
+          platforms: linux/${{matrix.platform}}
           file: .github/workflows/Dockerfile
           tags: |
             ghcr.io/${{github.repository}}:latest
