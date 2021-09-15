@@ -101,7 +101,7 @@ jobs:
 
   windows:
     name: Windows
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 120
     env:
       R_CRAN_WEB: "https://cran.rstudio.com"
