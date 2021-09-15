@@ -1,5 +1,8 @@
 FROM ubuntu:latest
 
+COPY . /r-source
+WORKDIR /r-source
+
 ENV DEBIAN_FRONTEND noninteractive
 ENV R_CRAN_WEB https://cran.rstudio.com
 ENV CRAN_RSYNC mirrors.nic.cz::CRAN
