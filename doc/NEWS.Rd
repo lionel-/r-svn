@@ -183,6 +183,9 @@
 
       \item \sQuote{Object not found} errors now mention a more accurate
       context of error.
+
+      \item \sQuote{Object not found} and \sQuote{Missing argument}
+      errors now mention a more accurate context of error.
     }
   }
 
