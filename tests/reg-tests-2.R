@@ -3311,3 +3311,26 @@ stopifnot(eval(x) == 4, eval(parse(text = deparse(x))) == 4)
 dput(packageDate("foo"))
 ## gave *five* warnings* in R <= 4.2.x
 
+
+## object not found error mentions lexical call
+if (exists("foo")) rm(foo)
+## Should not mention call because called at top level
+try(identity(foo))
+try(do.call("identity", alist(foo)))
+##
+## Should mention `f()` call
+f <- function() identity(foo)
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+f <- function() do.call("identity", alist(foo))
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
+##
+## Should not mention call because there is no matching execution env
+try(do.call("identity", alist(foo), envir = new.env()))
+f <- function() do.call("identity", alist(foo), envir = new.env())
+try(f())
+f <- compiler::cmpfun(f)
+try(f())
