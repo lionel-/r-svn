@@ -58,7 +58,7 @@ isNamespaceLoaded <- function(name) {
     ## prevent issues in case of cyclic loading when a user load hook
     ## attempts to access the exports of a package that is currently
     ## being loaded.
-    !name %in% dynGet("__NameSpacesLoading__", NULL)
+    !as.character(name) %in% dynGet("__NameSpacesLoading__", NULL)
 }
 
 getNamespaceName <- function(ns) {
