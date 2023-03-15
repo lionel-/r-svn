@@ -21,6 +21,8 @@
 #ifndef RGRAPHICS_H_
 #define RGRAPHICS_H_
 
+#include <R_ext/GraphicsEngine.h>
+
 /* Internal header, not installed */
 
 	/* possible coordinate systems (for specifying locations) */

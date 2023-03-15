@@ -20,6 +20,8 @@
 #ifndef R_EXT_ALTREP_H_
 #define R_EXT_ALTREP_H_
 
+#include <Rinternals.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

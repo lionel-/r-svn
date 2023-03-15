@@ -21,8 +21,11 @@
 /* Internal header, not installed */
 
 #ifndef RFILEIO_H_
-
 #define RFILEIO_H_
+
+#ifndef __cplusplus
+# include <stdio.h> // FILE
+#endif
 
 int	R_fgetc(FILE*);
 FILE *	R_fopen(const char *filename, const char *mode);

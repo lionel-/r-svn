@@ -22,6 +22,8 @@
 #ifndef GETX11IMAGE_H_
 #define GETX11IMAGE_H_
 
+#include <Rinternals.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

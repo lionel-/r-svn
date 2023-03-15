@@ -23,6 +23,7 @@
 #ifndef R_EXT_CONNECTIONS_H_
 #define R_EXT_CONNECTIONS_H_
 
+#include <Rinternals.h>
 #include <R_ext/Boolean.h>
 
 #if defined(__cplusplus) && !defined(DO_NOT_USE_CXX_HEADERS)
