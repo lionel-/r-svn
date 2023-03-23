@@ -8571,7 +8571,7 @@ static void dobcprof(int sig)
 {
     if (current_opcode >= 0 && current_opcode < OPCOUNT)
 	opcode_counts[current_opcode]++;
-    signal(R_SignalType, dobcprof);
+    signal(SIGPROF, dobcprof);
 }
 
 attribute_hidden
@@ -8597,7 +8597,7 @@ SEXP do_bcprofstart(SEXP call, SEXP op, SEXP args, SEXP env)
     for (i = 0; i < OPCOUNT; i++)
 	opcode_counts[i] = 0;
 
-    signal(R_SignalType, dobcprof);
+    signal(SIGPROF, dobcprof);
 
     itv.it_interval.tv_sec = interval / 1000000;
     itv.it_interval.tv_usec =
@@ -8605,7 +8605,7 @@ SEXP do_bcprofstart(SEXP call, SEXP op, SEXP args, SEXP env)
     itv.it_value.tv_sec = interval / 1000000;
     itv.it_value.tv_usec =
 	(suseconds_t) (interval - itv.it_value.tv_sec * 1000000);
-    if (setitimer(R_TimerType, &itv, NULL) == -1)
+    if (setitimer(ITIMER_PROF, &itv, NULL) == -1)
 	error(_("setting profile timer failed"));
 
     bc_profiling = TRUE;
@@ -8615,7 +8615,7 @@ SEXP do_bcprofstart(SEXP call, SEXP op, SEXP args, SEXP env)
 
 static void dobcprof_null(int sig)
 {
-    signal(R_SignalType, dobcprof_null);
+    signal(SIGPROF, dobcprof_null);
 }
 
 attribute_hidden
@@ -8631,8 +8631,8 @@ SEXP do_bcprofstop(SEXP call, SEXP op, SEXP args, SEXP env)
     itv.it_interval.tv_usec = 0;
     itv.it_value.tv_sec = 0;
     itv.it_value.tv_usec = 0;
-    setitimer(R_TimerType, &itv, NULL);
-    signal(R_SignalType, dobcprof_null);
+    setitimer(ITIMER_PROF, &itv, NULL);
+    signal(SIGPROF, dobcprof_null);
 
     bc_profiling = FALSE;
 
