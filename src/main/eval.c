@@ -590,7 +590,7 @@ static void __cdecl ProfileThread(void *pwait)
 #else /* not Win32 */
 static void doprof_null(int sig)
 {
-    signal(R_SignalType, doprof);
+    signal(R_SignalType, doprof_null);
 }
 #endif /* not Win32 */
 
