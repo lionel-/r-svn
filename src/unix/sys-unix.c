@@ -340,6 +340,11 @@ static struct {
 static void timeout_handler(int sig);
 static void timeout_init(void)
 {
+#ifndef Win32
+    if (R_Profiling && R_ProfilingTimer == 0)
+	error(_("cannot use a timeout when profiling in real time on POSIX systems"));
+#endif
+
     tost.child_pid = 0;
     tost.timedout = 0;
     tost.kill_attempts = 0;

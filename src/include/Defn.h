@@ -1570,6 +1570,8 @@ extern SEXP R_findBCInterpreterSrcref(RCNTXT*);
 #endif
 extern SEXP R_getCurrentSrcref(void);
 extern SEXP R_getBCInterpreterExpression(void);
+extern0 int R_Profiling INI_as(0);
+extern0 int R_ProfilingTimer INI_as(-1);
 
 void R_BCProtReset(R_bcstack_t *);
 

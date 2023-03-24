@@ -41,7 +41,8 @@ static SEXP bcEval(SEXP, SEXP, Rboolean);
 static Rboolean bc_profiling = FALSE;
 #endif
 
-static int R_Profiling = 0;
+/* Now defined through Defn.h */
+/* int R_Profiling = 0; */
 
 #ifdef R_PROFILING
 
@@ -120,13 +121,13 @@ static size_t R_Srcfile_bufcount;                  /* how big is the array above
 static SEXP R_Srcfiles_buffer = NULL;              /* a big RAWSXP to use as a buffer for filenames and pointers to them */
 static int R_Profiling_Error;		   /* record errors here */
 static int R_Filter_Callframes = 0;	      	   /* whether to record only the trailing branch of call trees */
-static int R_TimerType = ITIMER_PROF;		   /* type of timer to use: ITIMER_REAL or ITIMER_PROF (the default) */
-static int R_SignalType = SIGPROF;		   /* type of signal to use: SIGALRM or SIGPROF (the default) */
 
 #ifdef Win32
 #define REAL_PROFILING_DEFAULT 0
 #else
 #define REAL_PROFILING_DEFAULT 1
+static int R_SignalType = SIGPROF;		   /* type of signal to use: SIGALRM or SIGPROF (the default) */
+static int R_TimerType = ITIMER_PROF;		   /* type of timer to use: ITIMER_REAL or ITIMER_PROF (the default) */
 #endif
 
 #ifdef Win32
@@ -684,8 +685,12 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     R_Line_Profiling = line_profiling;
     R_GC_Profiling = gc_profiling;
     R_Filter_Callframes = filter_callframes;
+    R_ProfilingTimer = timer;
+
+    #ifndef Win32
     R_TimerType = timer == 0 ? ITIMER_REAL : ITIMER_PROF;
     R_SignalType = timer == 0 ? SIGALRM : SIGPROF;
+    #endif
 
     if (line_profiling) {
 	/* Allocate a big RAW vector to use as a buffer.  The first len1 bytes are an array of pointers
