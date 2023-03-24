@@ -299,7 +299,6 @@ FILE *R_popen(const char *command, const char *type)
     sigset_t ss;
     sigemptyset(&ss);
     sigaddset(&ss, SIGPROF);
-    sigaddset(&ss, SIGALRM);
     sigprocmask(SIG_BLOCK, &ss,  NULL);
     fp = popen(command, type);
     sigprocmask(SIG_UNBLOCK, &ss, NULL);
@@ -323,7 +322,6 @@ int R_system(const char *command)
     sigset_t ss;
     sigemptyset(&ss);
     sigaddset(&ss, SIGPROF);
-    sigaddset(&ss, SIGALRM);
     sigprocmask(SIG_BLOCK, &ss,  NULL);
 # endif
 #ifdef HAVE_AQUA
