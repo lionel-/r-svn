@@ -75,6 +75,11 @@ Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
   excludes time when \R is waiting for input or for processes run by
   \code{\link{system}} to return.
 
+  There is also experimental support for real-time profiling. Please be
+  aware that there can be edge cases where this doesn't work correctly,
+  for instance if a package sets their own POSIX alarm signal and timer
+  state.
+
   Note that the timing interval cannot usefully be too small: once the
   timer goes off, the information is not recorded until the next timing
   click (probably in the range 1--10 ms).
