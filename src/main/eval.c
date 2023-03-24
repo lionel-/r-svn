@@ -124,9 +124,9 @@ static int R_TimerType = ITIMER_PROF;		   /* type of timer to use: ITIMER_REAL o
 static int R_SignalType = SIGPROF;		   /* type of signal to use: SIGALRM or SIGPROF (the default) */
 
 #ifdef Win32
-#define REAL_PROFILING_DEFAULT 1
-#else
 #define REAL_PROFILING_DEFAULT 0
+#else
+#define REAL_PROFILING_DEFAULT 1
 #endif
 
 #ifdef Win32
@@ -633,7 +633,7 @@ static void R_EndProfiling(void)
 static void R_InitProfiling(SEXP filename, int append, double dinterval,
 			    int mem_profiling, int gc_profiling,
 			    int line_profiling, int filter_callframes,
-			    int real_profiling, int numfiles, int bufsize)
+			    int timer, int numfiles, int bufsize)
 {
 #ifndef Win32
     struct itimerval itv;
@@ -684,8 +684,8 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     R_Line_Profiling = line_profiling;
     R_GC_Profiling = gc_profiling;
     R_Filter_Callframes = filter_callframes;
-    R_TimerType = real_profiling ? ITIMER_REAL : ITIMER_PROF;
-    R_SignalType = real_profiling ? SIGALRM : SIGPROF;
+    R_TimerType = timer == 0 ? ITIMER_REAL : ITIMER_PROF;
+    R_SignalType = timer == 0 ? SIGALRM : SIGPROF;
 
     if (line_profiling) {
 	/* Allocate a big RAW vector to use as a buffer.  The first len1 bytes are an array of pointers
@@ -748,9 +748,9 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
 
 SEXP do_Rprof(SEXP args)
 {
-    SEXP filename, real_profiling_arg;
+    SEXP filename;
     int append_mode, mem_profiling, gc_profiling, line_profiling,
-	filter_callframes, real_profiling;
+	filter_callframes, timer;
     double dinterval;
     int numfiles, bufsize;
 
@@ -769,23 +769,15 @@ SEXP do_Rprof(SEXP args)
     gc_profiling = asLogical(CAR(args));      args = CDR(args);
     line_profiling = asLogical(CAR(args));    args = CDR(args);
     filter_callframes = asLogical(CAR(args)); args = CDR(args);
-    real_profiling_arg = CAR(args);	      args = CDR(args);
+    timer = asInteger(CAR(args));	      args = CDR(args);
     numfiles = asInteger(CAR(args));	      args = CDR(args);
     if (numfiles < 0)
 	error(_("invalid '%s' argument"), "numfiles");
     bufsize = asInteger(CAR(args));
     if (bufsize < 0)
 	error(_("invalid '%s' argument"), "bufsize");
-
-    if (real_profiling_arg == R_NilValue)
-	real_profiling = REAL_PROFILING_DEFAULT;
-    else
-	real_profiling = asLogical(real_profiling_arg);
-
-#ifdef Win32
-    if (real_profiling != 1)
-	error(_("can't sample in CPU time on Windows"));
-#endif
+    if (timer < 0)
+	timer = REAL_PROFILING_DEFAULT;
 
 #if defined(linux) || defined(__linux__)
     if (dinterval < 0.01) {
@@ -803,7 +795,7 @@ SEXP do_Rprof(SEXP args)
     if (LENGTH(filename))
 	R_InitProfiling(filename, append_mode, dinterval, mem_profiling,
 			gc_profiling, line_profiling, filter_callframes,
-			real_profiling, numfiles, bufsize);
+			timer, numfiles, bufsize);
     else
 	R_EndProfiling();
     return R_NilValue;

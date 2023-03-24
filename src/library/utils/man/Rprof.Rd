@@ -13,7 +13,8 @@
 Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
        memory.profiling = FALSE, gc.profiling = FALSE,
        line.profiling = FALSE, filter.callframes = FALSE,
-       real.time = NULL, numfiles = 100L, bufsize = 10000L)
+       timer = c("default", "real", "cpu"), numfiles = 100L,
+       bufsize = 10000L)
 }
 \arguments{
   \item{filename}{
@@ -32,12 +33,12 @@ Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
   \item{filter.callframes}{logical: filter out intervening call frames
     of the call tree. See the filtering out call frames section.}
   \item{numfiles, bufsize}{integers: line profiling memory allocation}
-  \item{real.time}{logical: whether to sample call stacks using real
+  \item{timer}{character: whether to sample call stacks using real
     time (also known as wall-clock time or elapsed time) or CPU time.
     If your application is I/O bound, i.e. if it spends a lot of time
     waiting for downloads, timers, or other similar operations to
-    complete, set \code{real.time} to \code{TRUE}. If \code{NULL}, the
-    default, the type of time interval is selected as a function of the
+    complete, set \code{timer} to \code{"real"}. If \code{"default"},
+    the type of time interval is selected as a function of the
     platform. See details.}
 }
 \details{
@@ -58,7 +59,7 @@ Rprof(filename = "Rprof.out", append = FALSE, interval = 0.02,
   (e.g. with \code{\link{Sys.sleep}}) or for a file transfer to
   complete.
 
-  How time is measured is controlled by the \code{real.time} argument.
+  How time is measured is controlled by the \code{timer} argument.
   Its default varies by platform:
    \describe{
      \item{On Windows:}{
