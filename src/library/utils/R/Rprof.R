@@ -19,12 +19,25 @@
 Rprof <- function(filename = "Rprof.out", append = FALSE, interval =  0.02,
                   memory.profiling = FALSE, gc.profiling = FALSE,
                   line.profiling = FALSE, filter.callframes = FALSE,
-                  numfiles = 100L, bufsize = 10000L)
+                  timer = c("default", "real", "cpu"), numfiles = 100L,
+		  bufsize = 10000L)
 {
     if(is.null(filename)) filename <- ""
+
+    timer <- switch(
+	match.arg(timer),
+	default = -1L,
+	real = 0L,
+	cpu = {
+	    if (.Platform$OS.type == "windows")
+		stop("cannot use CPU timer on Windows")
+	    1L
+	}
+    )
+
     invisible(.External(C_Rprof, filename, append, interval, memory.profiling,
                         gc.profiling, line.profiling, filter.callframes,
-                        numfiles, bufsize))
+                        timer, numfiles, bufsize))
 }
 
 Rprofmem <- function(filename = "Rprofmem.out", append = FALSE, threshold = 0)

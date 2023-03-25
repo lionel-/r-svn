@@ -41,7 +41,8 @@ static SEXP bcEval(SEXP, SEXP, Rboolean);
 static Rboolean bc_profiling = FALSE;
 #endif
 
-static int R_Profiling = 0;
+/* Now defined through Defn.h */
+/* int R_Profiling = 0; */
 
 #ifdef R_PROFILING
 
@@ -53,7 +54,7 @@ static int R_Profiling = 0;
 /* A simple mechanism for profiling R code.  When R_PROFILING is
    enabled, eval will write out the call stack every PROFSAMPLE
    microseconds using the SIGPROF handler triggered by timer signals
-   from the ITIMER_PROF timer.  Since this is the same timer used by C
+   from the ITIMER_PROF timer by default.  Since this is the same timer used by C
    profiling, the two cannot be used together.  Output is written to
    the file PROFOUTNAME.  This is a plain text file.  The first line
    of the file contains the value of PROFSAMPLE.  The remaining lines
@@ -120,6 +121,14 @@ static size_t R_Srcfile_bufcount;                  /* how big is the array above
 static SEXP R_Srcfiles_buffer = NULL;              /* a big RAWSXP to use as a buffer for filenames and pointers to them */
 static int R_Profiling_Error;		   /* record errors here */
 static int R_Filter_Callframes = 0;	      	   /* whether to record only the trailing branch of call trees */
+
+#ifdef Win32
+#define REAL_PROFILING_DEFAULT 0
+#else
+#define REAL_PROFILING_DEFAULT 1
+static int R_SignalType = SIGPROF;		   /* type of signal to use: SIGALRM or SIGPROF (the default) */
+static int R_TimerType = ITIMER_PROF;		   /* type of timer to use: ITIMER_REAL or ITIMER_PROF (the default) */
+#endif
 
 #ifdef Win32
 HANDLE MainThread;
@@ -563,7 +572,7 @@ static void doprof(int sig)  /* sig is ignored in Windows */
     }
 
 #ifndef Win32
-    signal(SIGPROF, doprof);
+    signal(R_SignalType, doprof);
 #endif /* not Win32 */
     errno = old_errno;
 }
@@ -582,7 +591,7 @@ static void __cdecl ProfileThread(void *pwait)
 #else /* not Win32 */
 static void doprof_null(int sig)
 {
-    signal(SIGPROF, doprof_null);
+    signal(R_SignalType, doprof_null);
 }
 #endif /* not Win32 */
 
@@ -601,8 +610,8 @@ static void R_EndProfiling(void)
     itv.it_interval.tv_usec = 0;
     itv.it_value.tv_sec = 0;
     itv.it_value.tv_usec = 0;
-    setitimer(ITIMER_PROF, &itv, NULL);
-    signal(SIGPROF, doprof_null);
+    setitimer(R_TimerType, &itv, NULL);
+    signal(R_SignalType, doprof_null);
     if(R_ProfileOutfile >= 0) close(R_ProfileOutfile);
     R_ProfileOutfile = -1;
 #endif /* not Win32 */
@@ -625,7 +634,7 @@ static void R_EndProfiling(void)
 static void R_InitProfiling(SEXP filename, int append, double dinterval,
 			    int mem_profiling, int gc_profiling,
 			    int line_profiling, int filter_callframes,
-			    int numfiles, int bufsize)
+			    int timer, int numfiles, int bufsize)
 {
 #ifndef Win32
     struct itimerval itv;
@@ -676,6 +685,12 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     R_Line_Profiling = line_profiling;
     R_GC_Profiling = gc_profiling;
     R_Filter_Callframes = filter_callframes;
+    R_ProfilingTimer = timer;
+
+    #ifndef Win32
+    R_TimerType = timer == 0 ? ITIMER_REAL : ITIMER_PROF;
+    R_SignalType = timer == 0 ? SIGALRM : SIGPROF;
+    #endif
 
     if (line_profiling) {
 	/* Allocate a big RAW vector to use as a buffer.  The first len1 bytes are an array of pointers
@@ -711,7 +726,7 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     mach_port_deallocate(mach_task_self(), R_profiled_thread_id);
 #endif
 
-    signal(SIGPROF, doprof);
+    signal(R_SignalType, doprof);
 
     /* The macOS implementation requires normalization here:
 
@@ -730,7 +745,7 @@ static void R_InitProfiling(SEXP filename, int append, double dinterval,
     itv.it_value.tv_sec = interval / 1000000;
     itv.it_value.tv_usec =
 	(suseconds_t)(interval - itv.it_value.tv_sec * 1000000);
-    if (setitimer(ITIMER_PROF, &itv, NULL) == -1)
+    if (setitimer(R_TimerType, &itv, NULL) == -1)
 	R_Suicide("setting profile timer failed");
 #endif /* not Win32 */
     R_Profiling = 1;
@@ -740,7 +755,7 @@ SEXP do_Rprof(SEXP args)
 {
     SEXP filename;
     int append_mode, mem_profiling, gc_profiling, line_profiling,
-	filter_callframes;
+	filter_callframes, timer;
     double dinterval;
     int numfiles, bufsize;
 
@@ -758,13 +773,16 @@ SEXP do_Rprof(SEXP args)
     mem_profiling = asLogical(CAR(args));     args = CDR(args);
     gc_profiling = asLogical(CAR(args));      args = CDR(args);
     line_profiling = asLogical(CAR(args));    args = CDR(args);
-    filter_callframes = asLogical(CAR(args));  args = CDR(args);
+    filter_callframes = asLogical(CAR(args)); args = CDR(args);
+    timer = asInteger(CAR(args));	      args = CDR(args);
     numfiles = asInteger(CAR(args));	      args = CDR(args);
     if (numfiles < 0)
 	error(_("invalid '%s' argument"), "numfiles");
     bufsize = asInteger(CAR(args));
     if (bufsize < 0)
 	error(_("invalid '%s' argument"), "bufsize");
+    if (timer < 0)
+	timer = REAL_PROFILING_DEFAULT;
 
 #if defined(linux) || defined(__linux__)
     if (dinterval < 0.01) {
@@ -782,7 +800,7 @@ SEXP do_Rprof(SEXP args)
     if (LENGTH(filename))
 	R_InitProfiling(filename, append_mode, dinterval, mem_profiling,
 			gc_profiling, line_profiling, filter_callframes,
-			numfiles, bufsize);
+			timer, numfiles, bufsize);
     else
 	R_EndProfiling();
     return R_NilValue;
