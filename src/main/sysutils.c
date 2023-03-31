@@ -277,6 +277,9 @@ attribute_hidden SEXP do_tempfile(SEXP call, SEXP op, SEXP args, SEXP env)
     slen = (n1 > n2) ? n1 : n2;
     slen = (n3 > slen) ? n3 : slen;
     PROTECT(ans = allocVector(STRSXP, slen));
+
+    const char* debug_tempdir = getenv("R_DEBUG_TEMPDIR");
+
     for(i = 0; i < slen; i++) {
 	tn = translateCharFP( STRING_ELT( pattern , i%n1 ) );
 	td = translateCharFP( STRING_ELT( tempdir , i%n2 ) );
@@ -284,8 +287,34 @@ attribute_hidden SEXP do_tempfile(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* try to get a new file name */
 	tm = R_tmpnam2(tn, td, te);
 	SET_STRING_ELT(ans, i, mkChar(tm));
-	if(tm) free(tm);
+	if(tm) {
+	    if (debug_tempdir) {
+		static char buf[2000];
+
+		SEXP calls = PROTECT(R_ParseEvalString("base::sys.calls()", env));
+		SEXP local = PROTECT(R_NewEnv(R_BaseNamespace, FALSE, 2));
+
+		defineVar(install("TRACEBACK"), calls, local);
+
+		const char* code =
+		    "{"
+		    "    debug_dir <- '%s';"
+		    "    file <- file.path(debug_dir, '%s');"
+		    "    file_dir <- dirname(file);"
+		    "    if (!dir.exists(file_dir)) dir.create(file_dir, recursive = TRUE);"
+		    "    while (file.exists(file)) file <- paste0(file, '-');"
+		    "    capture.output(print(TRACEBACK), file = file);"
+		    "}";
+		snprintf(buf, 2000, code, debug_tempdir, tm);
+		R_ParseEvalString(buf, local);
+
+		UNPROTECT(2);
+	    }
+
+	    free(tm);
+	}
     }
+
     UNPROTECT(1);
     return (ans);
 }
