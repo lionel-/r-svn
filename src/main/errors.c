@@ -1867,10 +1867,10 @@ NORET static void gotoExitingHandler(SEXP cond, SEXP call, SEXP entry)
 static void vsignalError(SEXP call, const char *format, va_list ap)
 {
     /* This function does not protect or restore the old handler
-       stack. On return R_HandlerStack will be R_NilValue (unless
-       R_RestartToken is encountered). */
+       stack. On return R_HandlerStack will be R_NilValue. */
     char localbuf[BUFSIZE];
     SEXP list;
+    Rboolean crossedBrowser = FALSE;
 
     Rvsnprintf_mbcs(localbuf, BUFSIZE - 1, format, ap);
     while ((list = findSimpleErrorHandler()) != R_NilValue) {
@@ -1881,9 +1881,10 @@ static void vsignalError(SEXP call, const char *format, va_list ap)
 	/*	Rvsnprintf(buf, BUFSIZE - 1, format, ap);*/
 	if (IS_CALLING_ENTRY(entry)) {
 	    if (ENTRY_HANDLER(entry) == R_RestartToken) {
-		UNPROTECT(1); /* oldstack */
-		break; /* go to default error handling */
-	    } else {
+		crossedBrowser = TRUE;
+		continue;
+	    }
+	    else {
 		/* if we are in the process of handling a C stack
 		   overflow, treat all calling handlers as failed */
 		if (R_OldCStackLimit)
@@ -1904,7 +1905,8 @@ static void vsignalError(SEXP call, const char *format, va_list ap)
 		UNPROTECT(5);
 	    }
 	}
-	else gotoExitingHandler(R_NilValue, call, entry);
+	else if (!crossedBrowser)
+	    gotoExitingHandler(R_NilValue, call, entry);
     }
 }
 
@@ -1931,6 +1933,7 @@ static SEXP findConditionHandler(SEXP cond)
 attribute_hidden SEXP do_signalCondition(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP list, cond, msg, ecall, oldstack;
+    Rboolean crossedBrowser = FALSE;
 
     checkArity(op, args);
 
@@ -1945,11 +1948,8 @@ attribute_hidden SEXP do_signalCondition(SEXP call, SEXP op, SEXP args, SEXP rho
 	if (IS_CALLING_ENTRY(entry)) {
 	    SEXP h = ENTRY_HANDLER(entry);
 	    if (h == R_RestartToken) {
-		const char *msgstr = NULL;
-		if (TYPEOF(msg) == STRSXP && LENGTH(msg) > 0)
-		    msgstr = translateChar(STRING_ELT(msg, 0));
-		else error(_("error message not a string"));
-		errorcall_dflt(ecall, "%s", msgstr);
+		crossedBrowser = TRUE;
+		continue;
 	    }
 	    else {
 		SEXP hcall = LCONS(h, LCONS(cond, R_NilValue));
@@ -1958,7 +1958,8 @@ attribute_hidden SEXP do_signalCondition(SEXP call, SEXP op, SEXP args, SEXP rho
 		UNPROTECT(1);
 	    }
 	}
-	else gotoExitingHandler(cond, ecall, entry);
+	else if (!crossedBrowser)
+	    gotoExitingHandler(cond, ecall, entry);
     }
     R_HandlerStack = oldstack;
     UNPROTECT(1);
@@ -2033,12 +2034,17 @@ R_InsertRestartHandlers(RCNTXT *cptr, const char *cname)
 	    error(_("handler or restart stack mismatch in old restart"));
     }
 
-    /**** need more here to keep recursive errors in browser? */
+    /* Insert a calling handler on the stack to serve as sentinel.
+       For instance exiting handlers shouldn't be called beyond this
+       sentinel (unlike calling handlers) */
     rho = cptr->cloenv;
     PROTECT(klass = mkChar("error"));
     entry = mkHandlerEntry(klass, rho, R_RestartToken, rho, R_NilValue, TRUE);
     R_HandlerStack = CONS(entry, R_HandlerStack);
     UNPROTECT(1);
+
+    /* Insert a restart on the stack. For instance `browser()`
+       prompts have an implicit "browser" restart. */
     PROTECT(name = mkString(cname));
     PROTECT(entry = allocVector(VECSXP, 2));
     SET_VECTOR_ELT(entry, 0, name);
@@ -2119,9 +2125,18 @@ attribute_hidden SEXP do_addRestart(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 #define RESTART_EXIT(r) VECTOR_ELT(r, 1)
+#define RESTART_NAME(r) VECTOR_ELT(r, 0)
+#define RESTART_NAME_CHAR(r) STRING_ELT(RESTART_NAME(r), 0)
 
 NORET static void invokeRestart(SEXP r, SEXP arglist)
 {
+    /* Sentinel for the browser restart */
+    static SEXP browserChar = NULL;
+    if (!browserChar) {
+	browserChar = mkChar("browser");
+	R_PreserveObject(browserChar);
+    }
+
     SEXP exit = RESTART_EXIT(r);
 
     if (exit == R_NilValue) {
@@ -2129,18 +2144,51 @@ NORET static void invokeRestart(SEXP r, SEXP arglist)
 	jump_to_toplevel();
     }
     else {
+	/* This needs to be protected manually because once popped from
+	   the restart stack a handler is no longer protected. */
+	PROTECT_INDEX pi;
+	SEXP browserRestart = R_NilValue;
+	PROTECT_WITH_INDEX(browserRestart, &pi);
+
 	for (; R_RestartStack != R_NilValue;
 	     R_RestartStack = CDR(R_RestartStack))
 	    if (exit == RESTART_EXIT(CAR(R_RestartStack))) {
+		/* If this is defined we crossed the browser frame.
+		   We prompt the user to confirm the restart invokation. */
+		if (browserRestart != R_NilValue) {
+		    /* Temporarily restore the browser restart so user
+		       may choose to return there */
+		    R_RestartStack = CONS(browserRestart, R_RestartStack);
+
+		    /* Prompt user. This will not return if they
+		       invoke the `browser` restart. */
+		    SEXP call = PROTECT(lang2(install(".browserRestartChoice"), VECTOR_ELT(r, 0)));
+		    eval(call, R_BaseNamespace);
+		    UNPROTECT(1);
+
+		    /* Restore the restart stack to its previous state */
+		    R_RestartStack = CDR(R_RestartStack);
+		}
+
 		R_RestartStack = CDR(R_RestartStack);
 		if (TYPEOF(exit) == EXTPTRSXP) {
 		    RCNTXT *c = (RCNTXT *) R_ExternalPtrAddr(exit);
 		    R_JumpToContext(c, CTXT_RESTART, R_RestartToken);
 		}
 		else findcontext(CTXT_FUNCTION, exit, arglist);
+	    } else if (browserRestart == R_NilValue &&
+		       RESTART_NAME_CHAR(CAR(R_RestartStack)) == browserChar) {
+		/* Save the browser restart. Only save the first one
+		   we see on the stack to ensure we return to the
+		   innermost browser prompt. */
+		browserRestart = CAR(R_RestartStack);
+		REPROTECT(browserRestart, pi);
 	    }
+
 	error(_("restart not on stack"));
     }
+
+    /* Unreachable */
 }
 
 attribute_hidden NORET
@@ -2663,14 +2711,17 @@ static void R_signalCondition(SEXP cond, SEXP call,
 	UNPROTECT(1); /* oldstack */
     }
     else {
+	Rboolean crossedBrowser = FALSE;
 	SEXP list;
 	while ((list = findConditionHandler(cond)) != R_NilValue) {
 	    SEXP entry = CAR(list);
 	    R_HandlerStack = CDR(list);
 	    if (IS_CALLING_ENTRY(entry)) {
 		SEXP h = ENTRY_HANDLER(entry);
-		if (h == R_RestartToken)
-		    break;
+		if (h == R_RestartToken) {
+		    crossedBrowser = TRUE;
+		    continue;
+		}
 		else if (! exitOnly) {
 		    R_CheckStack();
 		    SEXP hcall = LCONS(h, LCONS(cond, R_NilValue));
@@ -2679,7 +2730,8 @@ static void R_signalCondition(SEXP cond, SEXP call,
 		    UNPROTECT(1); /* hcall */
 		}
 	    }
-	    else gotoExitingHandler(cond, call, entry);
+	    else if (!crossedBrowser)
+		gotoExitingHandler(cond, call, entry);
 	}
     }
 }

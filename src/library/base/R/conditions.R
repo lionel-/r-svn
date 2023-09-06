@@ -255,6 +255,24 @@ invokeRestartInteractively <- function(r) {
     .Internal(.invokeRestart(r, args))
 }
 
+.browserRestartChoice <- function(name) {
+    writeLines(c(
+	sprintf("The '%s' restart outside the debugging context is being invoked. This is an error recovery mechanism, see '?invokeRestart' for more information.", name),
+	""
+    ))
+    choice <- utils::menu(
+	title = "Invoking this restart will end the debug session. Please choose an action:",
+	c(
+	    sprintf("End the debugging session and restart to '%s'", name),
+	    "Return to the debug prompt"
+	)
+    )
+
+    if (choice %in% c(0, 2)) {
+	invokeRestart("browser")
+    }
+}
+
 withRestarts <- function(expr, ...) {
     docall <- function(fun, args) {
 	if ((is.character(fun) && length(fun) == 1L) || is.name(fun))
