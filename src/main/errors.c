@@ -2125,9 +2125,18 @@ attribute_hidden SEXP do_addRestart(SEXP call, SEXP op, SEXP args, SEXP rho)
 }
 
 #define RESTART_EXIT(r) VECTOR_ELT(r, 1)
+#define RESTART_NAME(r) VECTOR_ELT(r, 0)
+#define RESTART_NAME_CHAR(r) STRING_ELT(RESTART_NAME(r), 0)
 
 NORET static void invokeRestart(SEXP r, SEXP arglist)
 {
+    /* Sentinel for the browser restart */
+    static SEXP browserChar = NULL;
+    if (!browserChar) {
+	browserChar = mkChar("browser");
+	R_PreserveObject(browserChar);
+    }
+
     SEXP exit = RESTART_EXIT(r);
 
     if (exit == R_NilValue) {
@@ -2135,18 +2144,51 @@ NORET static void invokeRestart(SEXP r, SEXP arglist)
 	jump_to_toplevel();
     }
     else {
+	/* This needs to be protected manually because once popped from
+	   the restart stack a handler is no longer protected. */
+	PROTECT_INDEX pi;
+	SEXP browserRestart = R_NilValue;
+	PROTECT_WITH_INDEX(browserRestart, &pi);
+
 	for (; R_RestartStack != R_NilValue;
 	     R_RestartStack = CDR(R_RestartStack))
 	    if (exit == RESTART_EXIT(CAR(R_RestartStack))) {
+		/* If this is defined we crossed the browser frame.
+		   We prompt the user to confirm the restart invokation. */
+		if (browserRestart != R_NilValue) {
+		    /* Temporarily restore the browser restart so user
+		       may choose to return there */
+		    R_RestartStack = CONS(browserRestart, R_RestartStack);
+
+		    /* Prompt user. This will not return if they
+		       invoke the `browser` restart. */
+		    SEXP call = PROTECT(lang2(install(".browserRestartChoice"), VECTOR_ELT(r, 0)));
+		    eval(call, R_BaseNamespace);
+		    UNPROTECT(1);
+
+		    /* Restore the restart stack to its previous state */
+		    R_RestartStack = CDR(R_RestartStack);
+		}
+
 		R_RestartStack = CDR(R_RestartStack);
 		if (TYPEOF(exit) == EXTPTRSXP) {
 		    RCNTXT *c = (RCNTXT *) R_ExternalPtrAddr(exit);
 		    R_JumpToContext(c, CTXT_RESTART, R_RestartToken);
 		}
 		else findcontext(CTXT_FUNCTION, exit, arglist);
+	    } else if (browserRestart == R_NilValue &&
+		       RESTART_NAME_CHAR(CAR(R_RestartStack)) == browserChar) {
+		/* Save the browser restart. Only save the first one
+		   we see on the stack to ensure we return to the
+		   innermost browser prompt. */
+		browserRestart = CAR(R_RestartStack);
+		REPROTECT(browserRestart, pi);
 	    }
+
 	error(_("restart not on stack"));
     }
+
+    /* Unreachable */
 }
 
 attribute_hidden NORET
