@@ -519,7 +519,7 @@ languageFuns <- c("^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
                   "%%", "+",
                   "::", ":::", "@<-",
                   "break", "for", "function", "if", "next", "repeat", "while",
-                  "local", "return", "switch")
+                  "local", "return", "switch", "declare")
 
 
 ##
@@ -1062,6 +1062,18 @@ make.loopContext <- function(cntxt, loop.label, end.label) {
     ncntxt
 }
 
+make.blockContext <- function(cntxt, block) {
+    vars <- findVariablesDecl(declarations(block, cntxt))
+
+    suppressUndefined <- c(
+        cntxt$suppressUndefined,
+        vars
+    )
+    cntxt$suppressUndefined <- suppressUndefined
+
+    cntxt
+}
+
 
 ##
 ## Compiler top level
@@ -1297,6 +1309,49 @@ mayCallBrowserList <- function(elist, cntxt) {
     FALSE
 }
 
+
+##
+## Declarations helpers
+##
+
+## Retrieves list of declarations from a block
+declarations <- function(expr, cntxt) {
+    if (!isBaseVar("declare", cntxt))
+        return(NULL)
+
+    if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
+        return(NULL)
+
+    header <- expr[[2]]
+    if (!is.call(header) || !identical(header[[1]], quote(`declare`)))
+        return(NULL)
+
+    as.list(header[-1])
+}
+
+## Retrieves a specific declaration call
+findDeclaration <- function(decls, sym) {
+    for (decl in decls)
+        if (is.call(decl) && identical(decl[[1]], sym))
+            return(decl)
+    NULL
+}
+
+findVariablesDecl <- function(decls) {
+    vars <- findDeclaration(decls, quote(variables))
+
+    asVar <- \(var) {
+        if (is.symbol(var)) {
+            as.character(var)
+        } else {
+            ## Silently ignore unknown types for forward compat
+            NULL
+        }
+    }
+    unlist(lapply(vars, asVar))
+}
+
+
 ##
 ## Inlining mechanism
 ##
@@ -1426,6 +1481,7 @@ setInlineHandler("function", function(e, cb, cntxt) {
 })
 
 setInlineHandler("{", function(e, cb, cntxt) {
+    cntxt <- make.blockContext(cntxt, e)
     n <- length(e)
     if (n == 1)
         cmp(NULL, cb, cntxt)

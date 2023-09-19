@@ -1203,6 +1203,22 @@ make.loopContext <- function(cntxt, loop.label, end.label) {
 }
 @ %def make.loopContext
 
+The context for compiling blocks, with declarations (see section
+\ref{sec:declarations}) taken into account.
+<<[[make.blockContext]] function>>=
+make.blockContext <- function(cntxt, block) {
+    vars <- findVariablesDecl(declarations(block, cntxt))
+
+    suppressUndefined <- c(
+	cntxt$suppressUndefined,
+	vars
+    )
+    cntxt$suppressUndefined <- suppressUndefined
+
+    cntxt
+}
+@ %def make.blockContext
+
 The initial loop context allows [[break]] and [[next]] calls to be
 implemented as [[GOTO]] instructions.  This is OK for calls that are
 in top level position relative to the loop.  Calls that occur in
@@ -1971,6 +1987,77 @@ funEnv <- function(forms, body, cntxt) {
 @ %def funEnv
 
 
+\section{Declarations helpers}
+\label{sec:declarations}
+
+Compiler declarations can be attached to [[{]] blocks to provide
+information about the code within the block that the compiler would
+not otherwise be able to infer. Declarations are provided through a
+[[declare]] call. This must be the first element of the [[{]] block.
+[[declarations]]  retrieves them as a list of expressions.
+
+<<[[declarations]] function>>=
+## Retrieves list of declarations from a block
+declarations <- function(expr, cntxt) {
+    if (!isBaseVar("declare", cntxt))
+	return(NULL)
+
+    if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
+	return(NULL)
+
+    header <- expr[[2]]
+    if (!is.call(header) || !identical(header[[1]], quote(`declare`)))
+	return(NULL)
+
+    as.list(header[-1])
+}
+@ %def declarations
+
+By convention declarations are provided with the form
+[[declarations(myDeclaration(arg1, arg2))]]. The function call syntax
+has been chosen because it is a natural way of providing a list of
+arguments along with a keyword (the call name) that defines what kind
+of declaration we are dealing with. Unknown declarations are
+ignored. This ensures forward compatibility and lets third parties
+define their own declarations for static analysis purposes. These
+should be namespaced, e.g. [[declarations(myOrg::myDeclaration())]].
+[[findDeclaration]] retrieves a specific declaration call from the
+[[declarations]] list.
+
+<<[[findDeclaration]] function>>=
+## Retrieves a specific declaration call
+findDeclaration <- function(decls, sym) {
+    for (decl in decls)
+	if (is.call(decl) && identical(decl[[1]], sym))
+	    return(decl)
+    NULL
+}
+@ %def declarations
+
+A [[variables]] call declares the existence of variables that are not
+otherwise lexically defined. These should be provided as symbols.
+Declaring variables is useful for calling NSE functions that introduce
+extra symbols in the evaluation environment of their arguments.
+[[findVariablesDecl]] retrieves the list of declared variables as
+strings. Non-conforming variables are silently ignored for forward
+compatibility.
+
+<<[[findVariablesDecl]] function>>=
+findVariablesDecl <- function(decls) {
+    vars <- findDeclaration(decls, quote(variables))
+
+    asVar <- \(var) {
+        if (is.symbol(var)) {
+            as.character(var)
+        } else {
+	    ## Silently ignore unknown types for forward compat
+            NULL
+        }
+    }
+    unlist(lapply(vars, asVar))
+}
+@ %def findVariablesDecl
+
 \section{The inlining mechanism}
 \label{sec:inlining}
 To allow for inline coding of calls to some functions the [[cmpCall]]
@@ -2007,7 +2094,7 @@ languageFuns <- c("^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
                   "%%", "+",
                   "::", ":::", "@<-",
                   "break", "for", "function", "if", "next", "repeat", "while",
-                  "local", "return", "switch")
+                  "local", "return", "switch", "declare")
 @ %def languageFuns
 %% **** local, return, and switch are dubious here
 %% **** if we allow them, should we also allow a few others, like .Internal?
@@ -2336,6 +2423,7 @@ final expression is then compiled according to the context in which
 the braces expression occurs.
 <<inlining handler for left brace function>>=
 setInlineHandler("{", function(e, cb, cntxt) {
+    cntxt <- make.blockContext(cntxt, e)
     n <- length(e)
     if (n == 1)
         cmp(NULL, cb, cntxt)
@@ -6463,6 +6551,8 @@ Opcodes.names <- names(Opcodes.argc)
 
 <<[[make.loopContext]] function>>
 
+<<[[make.blockContext]] function>>
+
 
 ##
 ## Compiler top level
@@ -6495,6 +6585,18 @@ Opcodes.names <- names(Opcodes.argc)
 <<[[mayCallBrowser]] function>>
 
 <<[[mayCallBrowserList]] function>>
+
+
+##
+## Declarations helpers
+##
+
+<<[[declarations]] function>>
+
+<<[[findDeclaration]] function>>
+
+<<[[findVariablesDecl]] function>>
+
 
 ##
 ## Inlining mechanism
