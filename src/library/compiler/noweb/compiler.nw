@@ -1971,6 +1971,30 @@ funEnv <- function(forms, body, cntxt) {
 @ %def funEnv
 
 
+\section{Declarations helpers}
+\label{sec:declarations}
+
+Compiler declarations can be attached to [[{]] blocks to provide
+information about the code within the block that the compiler would
+not otherwise be able to infer. Declarations are provided through a
+[[declare]] call. This must be the first element of the [[{]] block.
+[[declarations]]  retrieves them as a list of expressions.
+
+<<[[declarations]] function>>=
+## Retrieves list of declarations from a block
+declarations <- function(expr) {
+    if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
+	return(NULL)
+
+    header <- expr[[2]]
+    if (!is.call(header) || !identical(header[[1]], quote(`declare`)))
+	return(NULL)
+
+    as.list(header[-1])
+}
+@ %def declarations
+
+
 \section{The inlining mechanism}
 \label{sec:inlining}
 To allow for inline coding of calls to some functions the [[cmpCall]]
@@ -6495,6 +6519,14 @@ Opcodes.names <- names(Opcodes.argc)
 <<[[mayCallBrowser]] function>>
 
 <<[[mayCallBrowserList]] function>>
+
+
+##
+## Declarations helpers
+##
+
+<<[[declarations]] function>>
+
 
 ##
 ## Inlining mechanism

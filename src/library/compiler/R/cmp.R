@@ -1297,6 +1297,24 @@ mayCallBrowserList <- function(elist, cntxt) {
     FALSE
 }
 
+
+##
+## Declarations helpers
+##
+
+## Retrieves list of declarations from a block
+declarations <- function(expr) {
+    if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
+        return(NULL)
+
+    header <- expr[[2]]
+    if (!is.call(header) || !identical(header[[1]], quote(`declare`)))
+        return(NULL)
+
+    as.list(header[-1])
+}
+
+
 ##
 ## Inlining mechanism
 ##
