@@ -1062,6 +1062,18 @@ make.loopContext <- function(cntxt, loop.label, end.label) {
     ncntxt
 }
 
+make.blockContext <- function(cntxt, block) {
+    vars <- findVariablesDecl(declarations(block), cntxt)
+
+    suppressUndefined <- c(
+        cntxt$suppressUndefined,
+        vars
+    )
+    cntxt$suppressUndefined <- suppressUndefined
+
+    cntxt
+}
+
 
 ##
 ## Compiler top level
@@ -1314,6 +1326,29 @@ declarations <- function(expr) {
     as.list(header[-1])
 }
 
+## Retrieves a specific declaration call
+findDeclaration <- function(decls, sym) {
+    for (decl in decls)
+        if (is.call(decl) && identical(decl[[1]], sym))
+            return(decl)
+    NULL
+}
+
+findVariablesDecl <- function(decls, cntxt) {
+    vars <- findDeclaration(decls, quote(variables))
+    cntxt <- make.callContext(cntxt, vars)
+
+    asVar <- \(var) {
+        if (!is.symbol(var)) {
+            cntxt$warn(gettext("variable declaration must be a symbol"), cntxt)
+            NULL
+        } else {
+            as.character(var)
+        }
+    }
+    unlist(lapply(vars, asVar))
+}
+
 
 ##
 ## Inlining mechanism
@@ -1444,6 +1479,7 @@ setInlineHandler("function", function(e, cb, cntxt) {
 })
 
 setInlineHandler("{", function(e, cb, cntxt) {
+    cntxt <- make.blockContext(cntxt, e)
     n <- length(e)
     if (n == 1)
         cmp(NULL, cb, cntxt)
