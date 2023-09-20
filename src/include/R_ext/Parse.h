@@ -25,6 +25,8 @@
 #ifndef R_EXT_PARSE_H_
 #define R_EXT_PARSE_H_
 
+#include <Rinternals.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

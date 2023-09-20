@@ -36,6 +36,10 @@ extern Rboolean EmitEmbeddedUTF8;
 NORET void R_CleanUp(SA_TYPE, int, int);
 void R_StartUp(void);
 
+#ifndef __cplusplus
+# include <stdio.h> // FILE
+#endif
+
 FILE *R_OpenInitFile(void);
 FILE *R_OpenSysInitFile(void);
 FILE *R_OpenSiteFile(void);

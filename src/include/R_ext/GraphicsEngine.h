@@ -26,6 +26,8 @@
 #ifndef R_GRAPHICSENGINE_H_
 #define R_GRAPHICSENGINE_H_
 
+#include <Rinternals.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

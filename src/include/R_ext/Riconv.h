@@ -30,6 +30,10 @@
 #ifndef R_ICONV_H
 #define R_ICONV_H
 
+#ifndef __cplusplus
+# include <stddef.h> // size_t
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

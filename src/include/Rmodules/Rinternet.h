@@ -22,6 +22,7 @@
 
 
 #include <Rinternals.h>
+#include <Rconnections.h>
 
 
 typedef SEXP (*R_DownloadRoutine)(SEXP args);
