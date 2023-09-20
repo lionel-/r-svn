@@ -1,18 +1,29 @@
 ### Extracting declarations
+cenv <- compiler:::makeCenv(.GlobalEnv)
+cntxt <- compiler:::make.toplevelContext(cenv, NULL)
 stopifnot(
-    is.null(compiler:::declarations(NULL)),
-    is.null(compiler:::declarations(quote(foo))),
-    is.null(compiler:::declarations(quote({ foo }))),
-    is.null(compiler:::declarations(quote({ NULL }))),
-    is.null(compiler:::declarations(quote({ NULL; declare(foo()) })))
+    is.null(compiler:::declarations(NULL, cntxt)),
+    is.null(compiler:::declarations(quote(foo), cntxt)),
+    is.null(compiler:::declarations(quote({ foo }), cntxt)),
+    is.null(compiler:::declarations(quote({ NULL }), cntxt)),
+    is.null(compiler:::declarations(quote({ NULL; declare(foo()) }), cntxt))
 )
 
 stopifnot(
     identical(
-	compiler:::declarations(quote({ declare(foo(), bar()) })),
+	compiler:::declarations(quote({ declare(foo(), bar()) }), cntxt),
 	alist(foo(), bar())
     )
 )
+
+## Ignore declarations if `declare()` is not in scope
+decls <- local({
+    declare <- function(...) NULL
+    cenv <- compiler:::makeCenv(environment())
+    cntxt <- compiler:::make.toplevelContext(cenv, NULL)
+    compiler:::declarations(quote({ declare(foo()) }), cntxt)
+})
+stopifnot(is.null(decls))
 
 
 ### Declaring local variables
@@ -53,6 +64,16 @@ expr <- quote(function() {
 expectSilent(
     compiler::compile(expr, options = list(suppressAll = FALSE))
 )
+
+## If `declare()` is not in scope, ignore it. We get three warnings,
+## including one about `foo` within the `declare()`
+local({
+    declare <- function(...) NULL
+    expectOutput(
+	compile(expr, env = environment(), options = list(suppressAll = FALSE)),
+	"no visible binding for global variable 'foo' "
+    )
+})
 
 ## Can declare in nested blocks
 expr <- quote(function() {

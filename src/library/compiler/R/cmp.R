@@ -519,7 +519,7 @@ languageFuns <- c("^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
                   "%%", "+",
                   "::", ":::", "@<-",
                   "break", "for", "function", "if", "next", "repeat", "while",
-                  "local", "return", "switch")
+                  "local", "return", "switch", "declare")
 
 
 ##
@@ -1063,7 +1063,7 @@ make.loopContext <- function(cntxt, loop.label, end.label) {
 }
 
 make.blockContext <- function(cntxt, block) {
-    vars <- findVariablesDecl(declarations(block), cntxt)
+    vars <- findVariablesDecl(declarations(block, cntxt), cntxt)
 
     suppressUndefined <- c(
         cntxt$suppressUndefined,
@@ -1315,7 +1315,10 @@ mayCallBrowserList <- function(elist, cntxt) {
 ##
 
 ## Retrieves list of declarations from a block
-declarations <- function(expr) {
+declarations <- function(expr, cntxt) {
+    if (!isBaseVar("declare", cntxt))
+        return(NULL)
+
     if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
         return(NULL)
 

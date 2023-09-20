@@ -1207,7 +1207,7 @@ The context for compiling blocks, with declarations (see section
 \ref{sec:declarations}) taken into account.
 <<[[make.blockContext]] function>>=
 make.blockContext <- function(cntxt, block) {
-    vars <- findVariablesDecl(declarations(block), cntxt)
+    vars <- findVariablesDecl(declarations(block, cntxt), cntxt)
 
     suppressUndefined <- c(
 	cntxt$suppressUndefined,
@@ -1998,7 +1998,10 @@ not otherwise be able to infer. Declarations are provided through a
 
 <<[[declarations]] function>>=
 ## Retrieves list of declarations from a block
-declarations <- function(expr) {
+declarations <- function(expr, cntxt) {
+    if (!isBaseVar("declare", cntxt))
+	return(NULL)
+
     if (!is.call(expr) || !identical(expr[[1]], quote(`{`)))
 	return(NULL)
 
@@ -2091,7 +2094,7 @@ languageFuns <- c("^", "~", "<", "<<-", "<=", "<-", "=", "==", ">", ">=",
                   "%%", "+",
                   "::", ":::", "@<-",
                   "break", "for", "function", "if", "next", "repeat", "while",
-                  "local", "return", "switch")
+                  "local", "return", "switch", "declare")
 @ %def languageFuns
 %% **** local, return, and switch are dubious here
 %% **** if we allow them, should we also allow a few others, like .Internal?
