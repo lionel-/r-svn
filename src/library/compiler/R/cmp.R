@@ -69,7 +69,6 @@ is.ddsym <- function(name) {
     length(grep("^\\.\\.[0-9]+$", as.character(name))) != 0
 }
 
-
 missingArgs <- function(args) {
     val <- logical(length(args))
     for (i in seq_along(args)) {
@@ -80,6 +79,17 @@ missingArgs <- function(args) {
             val[i] <- FALSE
     }
     val
+}
+
+## Doesn't expand dots, returns `NULL` in case of matching error
+matchCallSafe <- function(def, call) {
+    if (typeof(def) %in% c("special", "builtin"))
+        def <- args(def)
+
+    tryCatch(
+        match.call(def, call, FALSE, emptyenv()),
+        error = function(...) NULL
+    )
 }
 
 
@@ -1154,8 +1164,10 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
     args <- call[-1]
     if (typeof(fun) == "symbol") {
         if (! (inlineOK && tryInline(call, cb, cntxt))) {
-            if (findLocVar(fun, cntxt))
+            if (findLocVar(fun, cntxt)) {
+                def <- NULL
                 notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
+            }
             else {
                 def <- findFunDef(fun, cntxt)
                 if (is.null(def))
@@ -1164,7 +1176,12 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
                     checkCall(def, call,
                               function(w) notifyBadCall(w, cntxt, loc = cb$savecurloc()))
             }
-            cmpCallSymFun(fun, args, call, cb, cntxt)
+
+            ## Retrieve list of NSE declarations and match them to
+            ## `args` positionally
+            paramsDecl <- findParamsDecl(def, cntxt)
+            paramsDecl <- matchArgsDecl(paramsDecl, def, call)
+            cmpCallSymFun(fun, args, call, cb, cntxt, paramsDecl)
         }
     }
     else {
@@ -1178,12 +1195,10 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
     cb$restorecurloc(sloc)
 }
 
-maybeNSESymbols <- c("bquote")
-cmpCallSymFun <- function(fun, args, call, cb, cntxt) {
+cmpCallSymFun <- function(fun, args, call, cb, cntxt, paramsDecl = NULL) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
-    nse <- as.character(fun) %in% maybeNSESymbols
-    cmpCallArgs(args, cb, cntxt, nse)
+    cmpCallArgs(args, cb, cntxt, paramsDecl)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
     if (cntxt$tailcall) cb$putcode(RETURN.OP)
@@ -1193,14 +1208,14 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
     ncntxt <- make.nonTailCallContext(cntxt)
     cmp(fun, cb, ncntxt)
     cb$putcode(CHECKFUN.OP)
-    nse <- FALSE
-    cmpCallArgs(args, cb, cntxt, nse)
+    paramsDecl <- NULL
+    cmpCallArgs(args, cb, cntxt, paramsDecl)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
     if (cntxt$tailcall) cb$putcode(RETURN.OP)
 }
 
-cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
+cmpCallArgs <- function(args, cb, cntxt, paramsDecl = NULL) {
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1223,7 +1238,11 @@ cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
                        cntxt, loc = cb$savecurloc())
         else {
             if (is.symbol(a) || typeof(a) == "language") {
-                if (nse)
+                ## If argument has an NSE declaration of any kind,
+                ## don't compile it. The bytecode would be unused and
+                ## compilation might produce warnings about undefined
+                ## symbols.
+                if (!is.null(paramsDecl) && argIsDeclaredNse(paramsDecl[[i]]))
                       ci <- cb$putconst(a)
                 else
                       ci <- cb$putconst(genCode(a, pcntxt, loc = cb$savecurloc()))
@@ -1349,6 +1368,47 @@ findVariablesDecl <- function(decls) {
         }
     }
     unlist(lapply(vars, asVar))
+}
+
+findParamsDecl <- function(def, cntxt) {
+    if (typeof(def) == "closure") {
+        decls <- declarations(body(def), cntxt)
+        decl <- findDeclaration(decls, quote(params))
+        decl <- as.list(decl[-1])
+        decl
+    } else {
+        NULL
+    }
+}
+
+## Takes the `params()` declaration of an argument and determines if it
+## uses NSE.
+argIsDeclaredNse <- function(decl) {
+     ## At the moment we only support a `quote()` declaration, but
+     ## there could be more kinds of NSE declarations in the future.
+    identical(decl, quote(quote()))
+}
+
+## Match named declarations to a call. The declarations are reordered
+## to match the arguments of the call.
+matchArgsDecl <- function(decl, def, call) {
+    if (!length(decl))
+        return(NULL)
+
+    ## Match list of argument positions to formals
+    call[-1] <- as.list(seq_along(call[-1]))
+    matchedCall <- matchCallSafe(def, call)
+
+    if (is.null(matchedCall))
+        return(NULL)
+
+    ## If match succeeded, assign argument declarations according to
+    ## their position in the argument list
+    out <- rep(list(NULL), length(call) - 1)
+    idx <- unlist(as.list(matchedCall[names(decl)]))
+    out[idx] <- decl
+
+    out
 }
 
 
