@@ -82,22 +82,14 @@ missingArgs <- function(args) {
 }
 
 ## Doesn't expand dots, returns `NULL` in case of matching error
-## Avoid `match.call()` errors when call contains `...`
 matchCallSafe <- function(def, call) {
     if (typeof(def) %in% c("special", "builtin"))
         def <- args(def)
 
     tryCatch(
-        match.call(def, call, FALSE, emptyDotsEnv()),
+        match.call(def, call, FALSE, emptyenv()),
         error = function(...) NULL
     )
-}
-
-## For use with `match.call()` to avoid undefined `...` errors
-emptyDotsEnv <- function() {
-    env <- new.env(parent = emptyenv())
-    env$... <- NULL
-    env
 }
 
 
