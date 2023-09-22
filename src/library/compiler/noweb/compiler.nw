@@ -503,11 +503,9 @@ Call expressions in which the function is represented by a symbol are
 compiled by [[cmpCallSymFun]].  This function emits a [[GETFUN]]
 instruction and then compiles the arguments.
 <<[[cmpCallSymFun]] function>>=
-maybeNSESymbols <- c("bquote")
-cmpCallSymFun <- function(fun, args, call, cb, cntxt) {
+cmpCallSymFun <- function(fun, args, call, cb, cntxt, evalDecl = NULL) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
-    nse <- as.character(fun) %in% maybeNSESymbols
     <<compile arguments and emit [[CALL]] instruction>>
 }
 @ %def cmpCallSymFun
@@ -519,20 +517,17 @@ for handling function call arguments.
 
 Argument compilation is carried out by the function [[cmpCallArgs]],
 presented in Section \ref{subsec:callargs}, and is followed by emitting code
-to execute the call and, if necessary, return a result.  Calls to functions
-listed in [[maybeNSESymbols]] get their arguments uncompiled.  Currently
-this is only the case of [[bquote]], which does not evaluate its argument
-[[expr]] normally, but modifies the expression first (non-standard
-evaluation).  Compiling such argument could result in warnings, because the
-argument may not be a valid R expression (e.g.  when it contains [[.()]]
-subexpressions in complex assignments), and the generated code would be
-irrelevant (yet not used).  Not compiling an argument that will in fact be
-evaluated normally is safe, hence the code is not differentiating between
-individual function arguments nor is it checking whether [[bquote]] is the
-one from the [[base]] package.
+to execute the call and, if necessary, return a result.  Function arguments
+that are declared to quote their arguments (with the [[eval(myArg =
+quote())]] declaration) get these specific arguments uncompiled.  Compiling
+such argument could result in warnings, because the argument may not be a
+valid R expression (e.g. in the case of [[bquote(expr = )]] when it contains
+[[.()]] subexpressions in complex assignments), and the generated code would
+be irrelevant (yet not used).  Not compiling an argument that will in fact be
+evaluated normally is safe.
 
 <<compile arguments and emit [[CALL]] instruction>>=
-cmpCallArgs(args, cb, cntxt, nse)
+cmpCallArgs(args, cb, cntxt, evalDecl)
 ci <- cb$putconst(call)
 cb$putcode(CALL.OP, ci)
 if (cntxt$tailcall) cb$putcode(RETURN.OP)
@@ -552,7 +547,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
     ncntxt <- make.nonTailCallContext(cntxt)
     cmp(fun, cb, ncntxt)
     cb$putcode(CHECKFUN.OP)
-    nse <- FALSE
+    evalDecl <- NULL
     <<compile arguments and emit [[CALL]] instruction>>
 }
 @ %def cmpCallExprFun
@@ -569,7 +564,12 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
     if (typeof(fun) == "symbol") {
         if (! (inlineOK && tryInline(call, cb, cntxt))) {
             <<check the call to a symbol function>>
-	    cmpCallSymFun(fun, args, call, cb, cntxt)
+
+	    ## Retrieve list of NSE declarations and match them to
+	    ## `args` positionally
+	    evalDecl <- findEvalDecl(def, cntxt)
+	    evalDecl <- matchArgsDecl(evalDecl, def, call)
+            cmpCallSymFun(fun, args, call, cb, cntxt, evalDecl)
         }
     }
     else {
@@ -591,8 +591,10 @@ mechanism are given in Section \ref{sec:inlining}.
 In addition to the inlining mechanism, some checking of the call is
 carried out for symbol calls. The checking code is
 <<check the call to a symbol function>>=
-if (findLocVar(fun, cntxt))
+if (findLocVar(fun, cntxt)) {
+    def <- NULL
     notifyLocalFun(fun, cntxt, loc = cb$savecurloc())
+}
 else {
     def <- findFunDef(fun, cntxt)
     if (is.null(def))
@@ -660,7 +662,7 @@ arguments that are literal bytecode or promise objects.  When [[nse]] is
 [[TRUE]] (non-standard evaluation), promises will only get uncompiled
 expressions.
 <<[[cmpCallArgs]] function>>=
-cmpCallArgs <- function(args, cb, cntxt, nse = FALSE) {
+cmpCallArgs <- function(args, cb, cntxt, evalDecl = NULL) {
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -724,7 +726,11 @@ though it is not clean how much this would gain.
 <<compile a general argument>>=
 else {
     if (is.symbol(a) || typeof(a) == "language") {
-        if (nse)
+        ## If argument has an NSE declaration of any kind,
+        ## don't compile it. The bytecode would be unused and
+        ## compilation might produce warnings about undefined
+        ## symbols.
+        if (!is.null(evalDecl) && argIsDeclaredNse(evalDecl[[i]]))
               ci <- cb$putconst(a)
         else
               ci <- cb$putconst(genCode(a, pcntxt, loc = cb$savecurloc()))
@@ -2057,6 +2063,66 @@ findVariablesDecl <- function(decls, cntxt) {
     unlist(lapply(vars, asVar))
 }
 @ %def findVariablesDecl
+
+This retrieves [[eval]] declarations from a closure that is known at
+compile time.
+
+<<[[findEvalDecl]] function>>=
+findEvalDecl <- function(def, cntxt) {
+    if (typeof(def) == "closure") {
+	decls <- declarations(body(def), cntxt)
+	decl <- findDeclaration(decls, quote(eval))
+	decl <- as.list(decl[-1])
+	decl
+    } else {
+	NULL
+    }
+}
+@ %def findEvalDecl
+
+Take the `eval()` declaration of an argument and determines if it uses
+NSE. At the moment we only support the `quote()` declaration, but there
+could be more kinds of NSE declarations in the future.
+
+<<[[argIsDeclaredNse]] function>>=
+## Take the `eval()` declaration of an argument and determines if it
+## uses NSE.
+argIsDeclaredNse <- function(decl) {
+     ## At the moment we only support a `quote()` declaration, but
+     ## there could be more kinds of NSE declarations in the future.
+    identical(decl, quote(quote()))
+}
+@ %def argIsDeclaredNse
+
+This matches named declarations to the arguments of a call. Since the
+compiler doesn't do any argument matching and leaves the task to the
+bytecode interpreter, the declarations are reordered to match the
+arguments of the call. They can then be retrieved alongside the
+arguments in a sequential loop.
+
+<<[[matchArgsDecl]] function>>=
+## Match named declarations to a call. The declarations are reordered
+## to match the arguments of the call.
+matchArgsDecl <- function(decl, def, call) {
+    if (!length(decl))
+	return(NULL)
+
+    ## Match list of argument positions to formals
+    call[-1] <- as.list(seq_along(call[-1]))
+    matchedCall <- matchCallSafe(def, call)
+
+    if (is.null(matchedCall))
+	return(NULL)
+
+    ## If match succeeded, assign argument declarations according to
+    ## their position in the argument list
+    out <- rep(list(NULL), length(call) - 1)
+    idx <- unlist(as.list(matchedCall[names(decl)]))
+    out[idx] <- decl
+
+    out
+}
+@ %def matchArgsDecl
 
 \section{The inlining mechanism}
 \label{sec:inlining}
@@ -5867,6 +5933,28 @@ missingArgs <- function(args) {
 }
 @ %def missingArgs
 
+<<[[matchCallSafe]] function>>=
+## Doesn't expand dots, returns `NULL` in case of matching error
+## Avoid `match.call()` errors when call contains `...`
+matchCallSafe <- function(def, call) {
+    if (typeof(def) %in% c("special", "builtin"))
+	def <- args(def)
+
+    tryCatch(
+	match.call(def, call, FALSE, emptyDotsEnv()),
+	error = function(...) NULL
+    )
+}
+@ %def matchCallSafe
+
+<<[[emptyDotsEnv]] function>>=
+## For use with `match.call()` to avoid undefined `...` errors
+emptyDotsEnv <- function() {
+    env <- new.env(parent = emptyenv())
+    env$... <- NULL
+    env
+}
+@ %def emptyDotsEnv
 
 
 \section{Environment utilities}
@@ -6429,8 +6517,11 @@ Opcodes.names <- names(Opcodes.argc)
 
 <<[[is.ddsym]] function>>
 
-
 <<[[missingArgs]] function>>
+
+<<[[matchCallSafe]] function>>
+
+<<[[emptyDotsEnv]] function>>
 
 
 ##
@@ -6596,6 +6687,12 @@ Opcodes.names <- names(Opcodes.argc)
 <<[[findDeclaration]] function>>
 
 <<[[findVariablesDecl]] function>>
+
+<<[[findEvalDecl]] function>>
+
+<<[[argIsDeclaredNse]] function>>
+
+<<[[matchArgsDecl]] function>>
 
 
 ##

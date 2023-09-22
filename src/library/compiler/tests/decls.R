@@ -99,3 +99,48 @@ expectOutput(
     compiler::compile(expr, options = list(suppressAll = FALSE)),
     "no visible binding for global variable 'foo' "
 )
+
+
+### Quoted args
+
+cenv <- compiler:::makeCenv(.GlobalEnv)
+cntxt <- compiler:::make.toplevelContext(cenv, list(suppressAll = FALSE))
+
+do <- function(e) {
+    cntxt$env <- compiler:::addCenvVars(cenv, compiler:::findLocals(e, cntxt))
+    compiler:::genCode(e, cntxt)
+}
+
+# Global quoting functions, one annotated, the other not
+myQuote <- function(x) {
+    declare(eval(x = quote()))
+    substitute(x)
+}
+myQuote2 <- function(x, y) {
+    declare(eval(y = quote()))
+    substitute(y)
+}
+myBareQuote <- function(x) {
+    substitute(x)
+}
+
+expr <- quote(myBareQuote(foo))
+expectOutput(do(expr), "no visible binding for global variable 'foo' ")
+
+expr <- quote(bquote(foo))
+expectSilent(do(expr))
+
+expr <- quote(bquote(foo, bar))
+expectOutput(do(expr), "no visible binding for global variable 'bar'")
+
+expr <- quote(myQuote(foo))
+expectSilent(do(expr))
+
+expr <- quote(myQuote2(, foo))
+expectSilent(do(expr))
+
+expr <- quote(myQuote2(y = foo))
+expectSilent(do(expr))
+
+expr <- quote(myQuote2(foo, bar))
+expectOutput(do(expr), "no visible binding for global variable 'foo' ")
