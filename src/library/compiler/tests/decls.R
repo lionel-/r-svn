@@ -113,11 +113,11 @@ do <- function(e) {
 
 # Global quoting functions, one annotated, the other not
 myQuote <- function(x) {
-    declare(eval(x = quote()))
+    declare(params(x = quote()))
     substitute(x)
 }
 myQuote2 <- function(x, y) {
-    declare(eval(y = quote()))
+    declare(params(y = quote()))
     substitute(y)
 }
 myBareQuote <- function(x) {

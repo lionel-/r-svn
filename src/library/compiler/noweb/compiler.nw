@@ -503,7 +503,7 @@ Call expressions in which the function is represented by a symbol are
 compiled by [[cmpCallSymFun]].  This function emits a [[GETFUN]]
 instruction and then compiles the arguments.
 <<[[cmpCallSymFun]] function>>=
-cmpCallSymFun <- function(fun, args, call, cb, cntxt, evalDecl = NULL) {
+cmpCallSymFun <- function(fun, args, call, cb, cntxt, paramsDecl = NULL) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
     <<compile arguments and emit [[CALL]] instruction>>
@@ -527,7 +527,7 @@ be irrelevant (yet not used).  Not compiling an argument that will in fact be
 evaluated normally is safe.
 
 <<compile arguments and emit [[CALL]] instruction>>=
-cmpCallArgs(args, cb, cntxt, evalDecl)
+cmpCallArgs(args, cb, cntxt, paramsDecl)
 ci <- cb$putconst(call)
 cb$putcode(CALL.OP, ci)
 if (cntxt$tailcall) cb$putcode(RETURN.OP)
@@ -547,7 +547,7 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
     ncntxt <- make.nonTailCallContext(cntxt)
     cmp(fun, cb, ncntxt)
     cb$putcode(CHECKFUN.OP)
-    evalDecl <- NULL
+    paramsDecl <- NULL
     <<compile arguments and emit [[CALL]] instruction>>
 }
 @ %def cmpCallExprFun
@@ -567,9 +567,9 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
 
 	    ## Retrieve list of NSE declarations and match them to
 	    ## `args` positionally
-	    evalDecl <- findEvalDecl(def, cntxt)
-	    evalDecl <- matchArgsDecl(evalDecl, def, call)
-            cmpCallSymFun(fun, args, call, cb, cntxt, evalDecl)
+	    paramsDecl <- findParamsDecl(def, cntxt)
+	    paramsDecl <- matchArgsDecl(paramsDecl, def, call)
+            cmpCallSymFun(fun, args, call, cb, cntxt, paramsDecl)
         }
     }
     else {
@@ -662,7 +662,7 @@ arguments that are literal bytecode or promise objects.  When [[nse]] is
 [[TRUE]] (non-standard evaluation), promises will only get uncompiled
 expressions.
 <<[[cmpCallArgs]] function>>=
-cmpCallArgs <- function(args, cb, cntxt, evalDecl = NULL) {
+cmpCallArgs <- function(args, cb, cntxt, paramsDecl = NULL) {
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -730,7 +730,7 @@ else {
         ## don't compile it. The bytecode would be unused and
         ## compilation might produce warnings about undefined
         ## symbols.
-        if (!is.null(evalDecl) && argIsDeclaredNse(evalDecl[[i]]))
+        if (!is.null(paramsDecl) && argIsDeclaredNse(paramsDecl[[i]]))
               ci <- cb$putconst(a)
         else
               ci <- cb$putconst(genCode(a, pcntxt, loc = cb$savecurloc()))
@@ -2067,18 +2067,18 @@ findVariablesDecl <- function(decls, cntxt) {
 This retrieves [[eval]] declarations from a closure that is known at
 compile time.
 
-<<[[findEvalDecl]] function>>=
-findEvalDecl <- function(def, cntxt) {
+<<[[findParamsDecl]] function>>=
+findParamsDecl <- function(def, cntxt) {
     if (typeof(def) == "closure") {
 	decls <- declarations(body(def), cntxt)
-	decl <- findDeclaration(decls, quote(eval))
+	decl <- findDeclaration(decls, quote(params))
 	decl <- as.list(decl[-1])
 	decl
     } else {
 	NULL
     }
 }
-@ %def findEvalDecl
+@ %def findParamsDecl
 
 Take the `eval()` declaration of an argument and determines if it uses
 NSE. At the moment we only support the `quote()` declaration, but there
@@ -6676,7 +6676,7 @@ Opcodes.names <- names(Opcodes.argc)
 
 <<[[findVariablesDecl]] function>>
 
-<<[[findEvalDecl]] function>>
+<<[[findParamsDecl]] function>>
 
 <<[[argIsDeclaredNse]] function>>
 

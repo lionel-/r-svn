@@ -1179,9 +1179,9 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
 
             ## Retrieve list of NSE declarations and match them to
             ## `args` positionally
-            evalDecl <- findEvalDecl(def, cntxt)
-            evalDecl <- matchArgsDecl(evalDecl, def, call)
-            cmpCallSymFun(fun, args, call, cb, cntxt, evalDecl)
+            paramsDecl <- findParamsDecl(def, cntxt)
+            paramsDecl <- matchArgsDecl(paramsDecl, def, call)
+            cmpCallSymFun(fun, args, call, cb, cntxt, paramsDecl)
         }
     }
     else {
@@ -1195,10 +1195,10 @@ cmpCall <- function(call, cb, cntxt, inlineOK = TRUE) {
     cb$restorecurloc(sloc)
 }
 
-cmpCallSymFun <- function(fun, args, call, cb, cntxt, evalDecl = NULL) {
+cmpCallSymFun <- function(fun, args, call, cb, cntxt, paramsDecl = NULL) {
     ci <- cb$putconst(fun)
     cb$putcode(GETFUN.OP, ci)
-    cmpCallArgs(args, cb, cntxt, evalDecl)
+    cmpCallArgs(args, cb, cntxt, paramsDecl)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
     if (cntxt$tailcall) cb$putcode(RETURN.OP)
@@ -1208,14 +1208,14 @@ cmpCallExprFun <- function(fun, args, call, cb, cntxt) {
     ncntxt <- make.nonTailCallContext(cntxt)
     cmp(fun, cb, ncntxt)
     cb$putcode(CHECKFUN.OP)
-    evalDecl <- NULL
-    cmpCallArgs(args, cb, cntxt, evalDecl)
+    paramsDecl <- NULL
+    cmpCallArgs(args, cb, cntxt, paramsDecl)
     ci <- cb$putconst(call)
     cb$putcode(CALL.OP, ci)
     if (cntxt$tailcall) cb$putcode(RETURN.OP)
 }
 
-cmpCallArgs <- function(args, cb, cntxt, evalDecl = NULL) {
+cmpCallArgs <- function(args, cb, cntxt, paramsDecl = NULL) {
     names <- names(args)
     pcntxt <- make.promiseContext(cntxt)
     for (i in seq_along(args)) {
@@ -1242,7 +1242,7 @@ cmpCallArgs <- function(args, cb, cntxt, evalDecl = NULL) {
                 ## don't compile it. The bytecode would be unused and
                 ## compilation might produce warnings about undefined
                 ## symbols.
-                if (!is.null(evalDecl) && argIsDeclaredNse(evalDecl[[i]]))
+                if (!is.null(paramsDecl) && argIsDeclaredNse(paramsDecl[[i]]))
                       ci <- cb$putconst(a)
                 else
                       ci <- cb$putconst(genCode(a, pcntxt, loc = cb$savecurloc()))
@@ -1371,10 +1371,10 @@ findVariablesDecl <- function(decls, cntxt) {
     unlist(lapply(vars, asVar))
 }
 
-findEvalDecl <- function(def, cntxt) {
+findParamsDecl <- function(def, cntxt) {
     if (typeof(def) == "closure") {
         decls <- declarations(body(def), cntxt)
-        decl <- findDeclaration(decls, quote(eval))
+        decl <- findDeclaration(decls, quote(params))
         decl <- as.list(decl[-1])
         decl
     } else {

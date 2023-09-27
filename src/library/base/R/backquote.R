@@ -22,7 +22,7 @@
 ### handle pairlists first
 bquote <- function (expr, where = parent.frame(), splice = FALSE)
 {
-    declare(eval(expr = quote()))
+    declare(params(expr = quote()))
 
     if (! is.environment(where))
         ## 'where' should be an environment, but as some don't read docs ...
