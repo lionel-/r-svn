@@ -941,6 +941,63 @@ NULL
  [ reached getOption("max.print") -- omitted 5 entries ]
 > options(o)
 > 
+> ## max.print and max
+> ## bug 15027 https://bugs.r-project.org/show_bug.cgi?id=15027
+> ## whenever the columns are larger than max.print, no values inside the matrix are displayed
+> print(matrix(nrow = 100, ncol = 4), max = 5)
+       [,1] [,2] [,3] [,4]
+  [1,]   NA   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 99 rows ]
+> ## with more cases
+> print(matrix(nrow = 200, ncol = 200), max = 100)
+       [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10] [,11] [,12] [,13]
+  [1,]   NA   NA   NA   NA   NA   NA   NA   NA   NA    NA    NA    NA    NA
+       [,14] [,15] [,16] [,17] [,18] [,19] [,20] [,21] [,22] [,23] [,24] [,25]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,26] [,27] [,28] [,29] [,30] [,31] [,32] [,33] [,34] [,35] [,36] [,37]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,38] [,39] [,40] [,41] [,42] [,43] [,44] [,45] [,46] [,47] [,48] [,49]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,50] [,51] [,52] [,53] [,54] [,55] [,56] [,57] [,58] [,59] [,60] [,61]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,62] [,63] [,64] [,65] [,66] [,67] [,68] [,69] [,70] [,71] [,72] [,73]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,74] [,75] [,76] [,77] [,78] [,79] [,80] [,81] [,82] [,83] [,84] [,85]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,86] [,87] [,88] [,89] [,90] [,91] [,92] [,93] [,94] [,95] [,96] [,97]
+  [1,]    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA    NA
+       [,98] [,99] [,100]
+  [1,]    NA    NA     NA
+ [ reached getOption("max.print") -- omitted 199 rows and 100 columns ]
+> ## fix: omitting rows **and** columns and warning printed
+> ## case: omitting rows and columns
+> print(matrix(nrow = 10, ncol = 4), max = 3)
+      [,1] [,2] [,3]
+ [1,]   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 9 rows and 1 column ]
+> ## case: omitting rows
+> print(matrix(nrow = 10, ncol = 2), max = 5)
+      [,1] [,2]
+ [1,]   NA   NA
+ [2,]   NA   NA
+ [ reached getOption("max.print") -- omitted 8 rows ]
+> ## case: omitting cols, at least one row prints
+> print(matrix(nrow = 1, ncol = 6), max = 5)
+     [,1] [,2] [,3] [,4] [,5]
+[1,]   NA   NA   NA   NA   NA
+ [ reached getOption("max.print") -- omitted 1 column ]
+> ## FIXME :in R 4.4.0 there should be a warning for omitted rows
+> print(array(dim = c(2, 2, 1)), max = 2)
+, , 1
+
+     [,1] [,2]
+[1,]   NA   NA
+
+> ## FIXME: this does not print anything but it should show
+> ## at least one element according to the logic of max.print
+> print(array(dim = c(2, 2, 1)), max = 1)
+ [ reached getOption("max.print") -- omitted 1 matrix slice(s) ]
+> 
 > ## Cleanup
 > rm(print.foo, obj, a, b, c, d, o)
 > 

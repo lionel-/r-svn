@@ -116,14 +116,13 @@ static void MatrixRowLabel(SEXP rl, int i, int rlabw, int lbloff)
  * We define macros that will be re-used in the other functions,
  * and comment the common code here (only):
 */
-static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
-			       SEXP rl, SEXP cl, const char *rn, const char *cn,
-			       Rboolean print_ij)
-{
+static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r,
+			       int c_pr, SEXP rl, SEXP cl, const char *rn,
+			       const char *cn, Rboolean print_ij) {
 /* initialization; particularly of row labels, rl= dimnames(.)[[1]] and
  * rn = names(dimnames(.))[1] : */
 #define _PRINT_INIT_rl_rn				\
-    int *w = (int *) R_alloc(c, sizeof(int));		\
+    int *w = (int *) R_alloc(c_pr, sizeof(int));	\
     int width, rlabw = -1, clabw = -1; /* -Wall */	\
     int i, j, jmin = 0, jmax = 0, lbloff = 0;		\
 							\
@@ -144,7 +143,7 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 #   define _COMPUTE_W2_(_FORMAT_j_, _LAST_j_)				\
     /* compute w[j] = column-width of j(+1)-th column : */		\
-    for (j = 0; j < c; j++) {						\
+    for (j = 0; j < c_pr; j++) {					\
 	if(print_ij) { _FORMAT_j_; } else w[j] = 0;			\
 									\
 	if (!isNull(cl)) {						\
@@ -175,13 +174,13 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 #   define _PRINT_MATRIX_(_W_EXTRA_, DO_COLUMN_LABELS, ENCODE_I_J)	\
 									\
-    if (c == 0) {							\
+    if (c_pr == 0) {							\
 	_PRINT_ROW_LAB;							\
 	for (i = 0; i < r; i++)						\
 	    MatrixRowLabel(rl, i, rlabw, lbloff);			\
 	Rprintf("\n");							\
     }									\
-    else while (jmin < c) {						\
+    else while (jmin < c_pr) {						\
 	/* print columns  jmin:(jmax-1)	 where jmax has to be determined first */ \
 									\
 	width = rlabw;							\
@@ -190,7 +189,7 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 	    width += w[jmax] _W_EXTRA_;					\
 	    jmax++;							\
 	}								\
-	while (jmax < c && width + w[jmax] _W_EXTRA_ < R_print.width);	\
+	while (jmax < c_pr && width + w[jmax] _W_EXTRA_ < R_print.width); \
 									\
 	_PRINT_ROW_LAB;							\
 									\
@@ -217,10 +216,9 @@ static void printLogicalMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeLogical(x[i + j * (R_xlen_t) r], w[j])));
-
 }
 
-static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c_pr,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
 			       Rboolean print_ij)
 {
@@ -233,35 +231,35 @@ static void printIntegerMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		   Rprintf("%s", EncodeInteger(x[i + j * (R_xlen_t) r], w[j])));
 }
 
-static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printRealMatrix(SEXP sx, int offset, int r_pr, int r, int c_pr,
 			    SEXP rl, SEXP cl, const char *rn, const char *cn,
 			    Rboolean print_ij)
 {
     _PRINT_INIT_rl_rn;
     const double *x = REAL_RO(sx) + offset;
-    int *d = (int *) R_alloc(c, sizeof(int)),
-	*e = (int *) R_alloc(c, sizeof(int));
+    int *d = (int *) R_alloc(c_pr, sizeof(int)),
+	*e = (int *) R_alloc(c_pr, sizeof(int));
 
     _COMPUTE_W_( formatReal(&x[j * (R_xlen_t) r], (R_xlen_t) r, &w[j],
-                            &d[j], &e[j], 0) );
+			    &d[j], &e[j], 0) );
 
     _PRINT_MATRIX_( , STD_ColumnLabels,
 		   Rprintf("%s", EncodeReal0(x[i + j * (R_xlen_t) r],
-                                             w[j], d[j], e[j], OutDec)) );
+					     w[j], d[j], e[j], OutDec)) );
 }
 
-static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c_pr,
 			       SEXP rl, SEXP cl, const char *rn, const char *cn,
 			       Rboolean print_ij)
 {
     _PRINT_INIT_rl_rn;
     const Rcomplex *x = COMPLEX_RO(sx) + offset;
-    int *dr = (int *) R_alloc(c, sizeof(int)),
-	*er = (int *) R_alloc(c, sizeof(int)),
-	*wr = (int *) R_alloc(c, sizeof(int)),
-	*di = (int *) R_alloc(c, sizeof(int)),
-	*ei = (int *) R_alloc(c, sizeof(int)),
-	*wi = (int *) R_alloc(c, sizeof(int));
+    int *dr = (int *) R_alloc(c_pr, sizeof(int)),
+	*er = (int *) R_alloc(c_pr, sizeof(int)),
+	*wr = (int *) R_alloc(c_pr, sizeof(int)),
+	*di = (int *) R_alloc(c_pr, sizeof(int)),
+	*ei = (int *) R_alloc(c_pr, sizeof(int)),
+	*wi = (int *) R_alloc(c_pr, sizeof(int));
 
     /* Determine the column widths */
     _COMPUTE_W_( formatComplex(&x[j * (R_xlen_t) r], (R_xlen_t) r,
@@ -275,15 +273,15 @@ static void printComplexMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 
 		       Rprintf("%s", EncodeReal0(NA_REAL, w[j], 0, 0, OutDec));
 		   else
-		       /* Note that the label printing may modify w[j], so wr[j] is not 
-		          necessarily still valid, and we use w[j] - wi[j] - 2  */
+		       /* Note that the label printing may modify w[j], so wr[j] is not
+			  necessarily still valid, and we use w[j] - wi[j] - 2  */
 		       Rprintf("%s",
 			       EncodeComplex(x[i + j * (R_xlen_t) r],
 					     w[j] - wi[j] - 2, dr[j], er[j],
 					     wi[j], di[j], ei[j], OutDec)) )
 }
 
-static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c_pr,
 			      int quote, int right, SEXP rl, SEXP cl,
 			      const char *rn, const char *cn, Rboolean print_ij)
 {
@@ -309,7 +307,7 @@ static void printStringMatrix(SEXP sx, int offset, int r_pr, int r, int c,
 		                        w[j], quote, right)) );
 }
 
-static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c,
+static void printRawMatrix(SEXP sx, int offset, int r_pr, int r, int c_pr,
 			   SEXP rl, SEXP cl, const char *rn, const char *cn,
 			   Rboolean print_ij)
 {
@@ -345,43 +343,50 @@ void printMatrix(SEXP x, int offset, SEXP dim, int quote, int right,
 	return;
     }
     r_pr = r;
+
+    /* Make sure we don't display more columns than max elements, see bug 15027 */
+    int c_pr = c > R_print.max ? R_print.max : c;
+
     if(c > 0 && R_print.max / c < r) /* avoid integer overflow */
 	/* using floor(), not ceil(), since 'c' could be huge: */
 	r_pr = R_print.max / c;
+    /* Display at least one row in case of truncation */
+    if (c > c_pr && r_pr < 1 && r > 0)
+	r_pr = 1;
     switch (TYPEOF(x)) {
     case LGLSXP:
-	printLogicalMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printLogicalMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case INTSXP:
-	printIntegerMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printIntegerMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case REALSXP:
-	printRealMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRealMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case CPLXSXP:
-	printComplexMatrix(x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printComplexMatrix(x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     case STRSXP:
 	if (quote) quote = '"';
-	printStringMatrix (x, offset, r_pr, r, c, quote, right, rl, cl, rn, cn, TRUE);
+	printStringMatrix (x, offset, r_pr, r, c_pr, quote, right, rl, cl, rn, cn, TRUE);
 	break;
     case RAWSXP:
-	printRawMatrix	  (x, offset, r_pr, r, c, rl, cl, rn, cn, TRUE);
+	printRawMatrix	  (x, offset, r_pr, r, c_pr, rl, cl, rn, cn, TRUE);
 	break;
     default:
 	UNIMPLEMENTED_TYPE("printMatrix", x);
     }
-#ifdef ENABLE_NLS
-    if(r_pr < r) // number of formats must be consistent here
-	Rprintf(ngettext(" [ reached getOption(\"max.print\") -- omitted %d row ]\n",
-			 " [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-			 r - r_pr),
-		r - r_pr);
-#else
-    if(r_pr < r)
-	Rprintf(" [ reached getOption(\"max.print\") -- omitted %d rows ]\n",
-		r - r_pr);
-#endif
+    if (r_pr < r || c_pr < c) {
+	Rprintf(" [ reached getOption(\"max.print\") -- omitted");
+	if (r_pr < r) {
+    	    Rprintf(ngettext(" %d row", " %d rows", r - r_pr), r - r_pr);
+	}
+	if (c_pr < c) {
+	    if (r_pr < r) Rprintf(" and");
+		Rprintf(ngettext(" %d column", " %d columns", c - c_pr), c - c_pr);
+	}
+	Rprintf(" ]\n");
+    }
     vmaxset(vmax);
 }
 
