@@ -27,6 +27,8 @@
 #ifndef R_INTERNAL_H
 #define R_INTERNAL_H
 
+#include <Rinternals.h>
+
 
 /* Function Names */
 

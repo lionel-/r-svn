@@ -30,6 +30,8 @@
 #ifndef R_GRAPHICSDEVICE_H_
 #define R_GRAPHICSDEVICE_H_
 
+#include <Rinternals.h>
+
 
 /* ideally we would use prototypes in DevDesc.  
    Some devices have taken to passing pointers to their own structure
