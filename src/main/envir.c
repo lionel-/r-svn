@@ -1656,6 +1656,27 @@ attribute_hidden SEXP do_dotsNames(SEXP call, SEXP op, SEXP args, SEXP env)
 // - If dots don't exist, should error, as you should use `R_DotsExist()` first
 // - OOB indexing should error, as you should use `R_DotsLength()` first
 
+// Forwarding `...` creates promise chains where PREXPR is itself a
+// PROMSXP. Walk to the innermost promise. `*forced` reports
+// whether the innermost promise has been evaluated.
+static SEXP delayedDotUnwrap(SEXP prom, Rboolean *forced)
+{
+    while (TYPEOF(prom) == PROMSXP) {
+	if (PROMISE_IS_EVALUATED(prom) || PRENV(prom) == R_NilValue) {
+	    *forced = TRUE;
+	    return prom;
+	}
+	SEXP expr = PREXPR(prom);
+	if (TYPEOF(expr) != PROMSXP) {
+	    *forced = FALSE;
+	    return prom;
+	}
+	prom = expr;
+    }
+    *forced = FALSE;
+    return prom;
+}
+
 R_DotType R_GetDotType(int i, SEXP env)
 {
     SEXP value = ddfind(i, env);
@@ -1666,8 +1687,10 @@ R_DotType R_GetDotType(int i, SEXP env)
     if (TYPEOF(value) == PROMSXP) {
 	if (PROMISE_IS_EVALUATED(value))
 	    return R_DotTypeForced;
-	else
-	    return R_DotTypeDelayed;
+
+	Rboolean forced;
+	delayedDotUnwrap(value, &forced);
+	return forced ? R_DotTypeForced : R_DotTypeDelayed;
     }
 
     return R_DotTypeValue;
@@ -1680,6 +1703,11 @@ SEXP R_DotDelayedExpression(int i, SEXP env)
     if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
 	error(_("not a delayed promise"));
 
+    Rboolean forced;
+    value = delayedDotUnwrap(value, &forced);
+    if (forced)
+	error(_("not a delayed promise"));
+
     return R_PromiseExpr(value);
 }
 
@@ -1689,6 +1717,11 @@ SEXP R_DotDelayedEnvironment(int i, SEXP env)
     if (TYPEOF(value) != PROMSXP || PROMISE_IS_EVALUATED(value))
 	error(_("not a delayed promise"));
 
+    Rboolean forced;
+    value = delayedDotUnwrap(value, &forced);
+    if (forced)
+	error(_("not a delayed promise"));
+
     return PRENV(value);
 }
 
@@ -1696,7 +1729,15 @@ SEXP R_DotDelayedEnvironment(int i, SEXP env)
 SEXP R_DotForcedExpression(int i, SEXP env)
 {
     SEXP value = ddfind(i, env);
-    if (TYPEOF(value) != PROMSXP || !PROMISE_IS_EVALUATED(value))
+    if (TYPEOF(value) != PROMSXP)
+	error(_("not a forced promise"));
+
+    if (PROMISE_IS_EVALUATED(value))
+	return R_PromiseExpr(value);
+
+    Rboolean forced;
+    value = delayedDotUnwrap(value, &forced);
+    if (!forced)
 	error(_("not a forced promise"));
 
     return R_PromiseExpr(value);
