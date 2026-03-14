@@ -2786,6 +2786,10 @@ local({
     mid <- function(...) get_expr(...)
     h <- function(...) { force(..1); mid(...) }
     stopifnot(identical(h(x), quote(x)))
+    # Forwarded dot forced in place (outermost wrapper is directly forced)
+    inner_forced <- function(...) { force(..1); dotForcedExpr(1L, environment()) }
+    f <- function(...) inner_forced(...)
+    stopifnot(identical(f(x), quote(x)))
 })
 
 
