@@ -2719,6 +2719,75 @@ local({
     stopifnot(identical(f(x), quote(x)))
 })
 
+## simple test for R_GetDotType
+local({
+    getDotType <- function(i, env) .Internal(getDotType(i, env))
+    g <- function(...) getDotType(1L, environment())
+    x <- 1
+    stopifnot(g(x) == "delayed")
+    stopifnot(g(, 1) == "missing")
+    h <- function(...) { force(..1); getDotType(1L, environment()) }
+    stopifnot(h(x) == "forced")
+})
+
+## R_GetDotType with promise chains from `...` expansion
+local({
+    getDotType <- function(i, env) .Internal(getDotType(i, env))
+    inner <- function(...) getDotType(1L, environment())
+    x <- 1
+    f <- function(...) inner(...)
+    stopifnot(f(x) == "delayed")
+    # Forced inner, then forwarded
+    f <- function(...) { force(..1); inner(...) }
+    stopifnot(f(x) == "forced")
+    # Deeper chain
+    mid <- function(...) inner(...)
+    f <- function(...) mid(...)
+    stopifnot(f(x) == "delayed")
+    f <- function(...) { force(..1); mid(...) }
+    stopifnot(f(x) == "forced")
+})
+
+## R_DotDelayedExpression and R_DotDelayedEnvironment
+local({
+    dotDelayedExpr <- function(i, env) .Internal(dotDelayedExpression(i, env))
+    dotDelayedEnv <- function(i, env) .Internal(dotDelayedEnvironment(i, env))
+    get_expr <- function(...) dotDelayedExpr(1L, environment())
+    get_env <- function(...) dotDelayedEnv(1L, environment())
+    e <- environment()
+    x <- 1
+    stopifnot(identical(get_expr(x), quote(x)))
+    stopifnot(identical(get_env(x), e))
+    # Through forwarded ...
+    outer_expr <- function(...) get_expr(...)
+    outer_env <- function(...) get_env(...)
+    stopifnot(identical(outer_expr(x), quote(x)))
+    stopifnot(identical(outer_env(x), e))
+    # Deeper chain
+    mid_expr <- function(...) get_expr(...)
+    deep_expr <- function(...) mid_expr(...)
+    mid_env <- function(...) get_env(...)
+    deep_env <- function(...) mid_env(...)
+    stopifnot(identical(deep_expr(x), quote(x)))
+    stopifnot(identical(deep_env(x), e))
+})
+
+## R_DotForcedExpression
+local({
+    dotForcedExpr <- function(i, env) .Internal(dotForcedExpression(i, env))
+    get_expr <- function(...) dotForcedExpr(1L, environment())
+    x <- 1
+    g <- function(...) { force(..1); dotForcedExpr(1L, environment()) }
+    stopifnot(identical(g(x), quote(x)))
+    # Forced inner, then forwarded
+    h <- function(...) { force(..1); get_expr(...) }
+    stopifnot(identical(h(x), quote(x)))
+    # Deeper chain
+    mid <- function(...) get_expr(...)
+    h <- function(...) { force(..1); mid(...) }
+    stopifnot(identical(h(x), quote(x)))
+})
+
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

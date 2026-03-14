@@ -1712,6 +1712,44 @@ SEXP R_DotForcedExpression(int i, SEXP env)
     return R_PromiseExpr(inner);
 }
 
+attribute_hidden SEXP do_dotType(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int i = asInteger(CAR(args));
+    SEXP env = CADR(args);
+    switch(R_GetDotType(i, env)) {
+    case R_DotTypeValue: return mkString("value");
+    case R_DotTypeMissing: return mkString("missing");
+    case R_DotTypeDelayed: return mkString("delayed");
+    case R_DotTypeForced: return mkString("forced");
+    default: error("unknown dot type; should not happen");
+    }
+}
+
+attribute_hidden SEXP do_dotDelayedExpr(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int i = asInteger(CAR(args));
+    SEXP env = CADR(args);
+    return R_DotDelayedExpression(i, env);
+}
+
+attribute_hidden SEXP do_dotDelayedEnv(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int i = asInteger(CAR(args));
+    SEXP env = CADR(args);
+    return R_DotDelayedEnvironment(i, env);
+}
+
+attribute_hidden SEXP do_dotForcedExpr(SEXP call, SEXP op, SEXP args, SEXP rho)
+{
+    checkArity(op, args);
+    int i = asInteger(CAR(args));
+    SEXP env = CADR(args);
+    return R_DotForcedExpression(i, env);
+}
+
 #undef length_DOTS
 
 /*----------------------------------------------------------------------
