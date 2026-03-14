@@ -1660,7 +1660,7 @@ R_DotType R_GetDotType(int i, SEXP env)
 
     if (TYPEOF(value) == PROMSXP) {
 	Rboolean forced;
-	promise_unwrap(value, &forced);
+	promiseUnwrap(value, &forced);
 	if (forced)
 	    return R_DotTypeForced;
 	else
@@ -1677,7 +1677,7 @@ SEXP R_DotDelayedExpression(int i, SEXP env)
 	error(_("not a delayed promise"));
 
     Rboolean forced;
-    SEXP inner = promise_unwrap(value, &forced);
+    SEXP inner = promiseUnwrap(value, &forced);
     if (forced)
 	error(_("not a delayed promise"));
 
@@ -1691,7 +1691,7 @@ SEXP R_DotDelayedEnvironment(int i, SEXP env)
 	error(_("not a delayed promise"));
 
     Rboolean forced;
-    SEXP inner = promise_unwrap(value, &forced);
+    SEXP inner = promiseUnwrap(value, &forced);
     if (forced)
 	error(_("not a delayed promise"));
 
@@ -1705,7 +1705,7 @@ SEXP R_DotForcedExpression(int i, SEXP env)
 	error(_("not a forced promise"));
 
     Rboolean forced;
-    SEXP inner = promise_unwrap(value, &forced);
+    SEXP inner = promiseUnwrap(value, &forced);
     if (!forced)
 	error(_("not a forced promise"));
 
