@@ -153,7 +153,6 @@ setOldClass <- function(Classes, prototype = NULL,
       superDef@subclasses[[Class]] <- def@contains[[super]]
       assignClassDef(super, superDef, superWhere, TRUE)
     }
-    lapply(oldSupers, addSubclass)
     subcls <- curDef@subclasses
     if(length(subcls) > 0) {
       def@subclasses[names(subcls)]  <- subcls
@@ -164,6 +163,7 @@ setOldClass <- function(Classes, prototype = NULL,
         def@prototype <- proto
     }
     assignClassDef(Class, def, where = where)
+    lapply(oldSupers, addSubclass)
     ## allow an existing superclass relation to remain (it may have a coerce method)
     ## Otherwise, create a simple transformation, which relies on consistency
     ## in the slots.
@@ -299,7 +299,7 @@ S3Class <- function(object) {
     object
 }
 
-## rename a class definition:  needs to change if any additional occurences of class
+## rename a class definition:  needs to change if any additional occurrences of class
 ## name are added, other than the className slot and the super/sub class names
 ## in the contains, subclasses slots respectively.
 .renameClassDef <- function(def, className) {

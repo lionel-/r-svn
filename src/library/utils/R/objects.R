@@ -1,7 +1,7 @@
 #  File src/library/utils/R/objects.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ function()
     c(names(.knownS3Generics), tools:::.get_internal_S3_generics())
 
 .S3methods <-
-function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropPath = FALSE)
+function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropPath = FALSE, useEnv = FALSE)
 {
     rbindSome <- function(df, nms, msg) {
         ## rbind.data.frame() -- dropping rows with duplicated names
@@ -88,9 +88,14 @@ function(generic.function, class, envir=parent.frame(), all.names = FALSE, dropP
 
     S3MethodsStopList <- tools::nonS3methods(NULL)
     knownGenerics <- getKnownS3generics()
-    sp <- search()
-    if(dropPath) sp <- sp[c(1L, length(sp))]
     methods.called <- identical(sys.call(-1)[[1]], as.symbol("methods"))
+    if(useEnv) {
+        attach(envir, pos = 2L, warn.conflicts = FALSE)
+        if(methods.called) message("some methods may be unavailable outside of their namespace")
+        on.exit(detach(2L))
+    }
+    sp <- search()
+    if(dropPath) sp <- sp[c(if(useEnv) 1:2 else 1L, length(sp))]
     an <- lapply(sp, ls, all.names = all.names)
     lens <- lengths(an)
     an <- unlist(an, use.names=FALSE)
@@ -211,6 +216,7 @@ methods <-
 function(generic.function, class, all.names = FALSE, dropPath = FALSE)
 {
     envir <- parent.frame()
+    useNS <- FALSE
     if(!missing(generic.function) && !is.character(generic.function)) {
         what <- substitute(generic.function)
         generic.function <-
@@ -219,6 +225,7 @@ function(generic.function, class, all.names = FALSE, dropPath = FALSE)
                (deparse(what[[1L]], nlines=1L) %in% c("::", ":::"))) {
                 what <- as.character(what[2:3])
                 envir <- asNamespace(what[[1L]])
+                useNS <- TRUE
                 what[[2L]]
             } else
                 deparse(what)
@@ -227,7 +234,8 @@ function(generic.function, class, all.names = FALSE, dropPath = FALSE)
     if (!missing(class) && !is.character(class))
         class <- deparse1(substitute(class))
 
-    s3 <- .S3methods(generic.function, class, envir, all.names=all.names, dropPath=dropPath)
+    s3 <- .S3methods(generic.function, class, envir, all.names=all.names, dropPath=dropPath,
+                     useEnv = useNS)
     s4 <- if(.isMethodsDispatchOn()) methods::.S4methods(generic.function, class)
 
     .MethodsFunction(s3, s4, missing(generic.function))
@@ -411,7 +419,7 @@ function(x, value)
         S3names <- S3[, 3L]
         if(x %in% S3names) {
             i <- match(x, S3names)
-            genfun <- get(S3[i, 1L], mode = "function", envir = parent.frame())
+            genfun <- get(S3[i, 1L], mode = "function", envir = ns)
             if(.isMethodsDispatchOn() && methods::is(genfun, "genericFunction"))
                 genfun <- methods::slot(genfun, "default")@methods$ANY
             defenv <- .defenv_for_S3_registry(genfun)
@@ -435,7 +443,7 @@ function(x, value, ns, pos = -1, envir = as.environment(pos))
         ns <- asNamespace(substring(nm, 9L))
     } else ns <- asNamespace(ns)
     ns_name <- getNamespaceName(ns)
-    if (nf > 1L) {
+    if (nf > 1L && !identical(sys.function(1), fixInNamespace)) {
         if(ns_name %in% tools:::.get_standard_package_names()$base)
             stop("locked binding of ", sQuote(x), " cannot be changed",
                  domain = NA)
@@ -471,7 +479,7 @@ function(x, value, ns, pos = -1, envir = as.environment(pos))
         S3names <- S3[, 3L]
         if(x %in% S3names) {
             i <- match(x, S3names)
-            genfun <- get(S3[i, 1L], mode = "function", envir = parent.frame())
+            genfun <- get(S3[i, 1L], mode = "function", envir = ns)
             if(.isMethodsDispatchOn() && methods::is(genfun, "genericFunction"))
                 genfun <- methods::slot(genfun, "default")@methods$ANY
             defenv <- .defenv_for_S3_registry(genfun)
@@ -551,7 +559,7 @@ function(x)
     }
     # now check for duplicates
     ln <- length(objs)
-    dups <- rep.int(FALSE, ln)
+    dups <- logical(ln) # FALSE
     if(ln > 1L)
         for(i in 2L:ln)
             for(j in 1L:(i-1L))
@@ -600,10 +608,10 @@ function(x)
     if(tryCatch(!is.character(x), error = function(e) TRUE))
         x <- as.character(substitute(x))
     fs <- getAnywhere(x)
-    if (sum(!fs$dups) == 0L)
-        return(NULL)
-    if (sum(!fs$dups) > 1L)
-        sapply(fs$objs[!fs$dups],
+    if((Nd <- sum(nod <- !fs$dups)) == 0L)
+        NULL
+    else if(Nd > 1L)
+        sapply(fs$objs[nod],
                function(f) if (is.function(f)) args(f))
     else args(fs$objs[[1L]])
 }

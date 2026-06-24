@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2014-2016  The R Core Team
+ *  Copyright (C) 2014-2026  The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -24,7 +24,8 @@
  *  Definition of the R_allocator_t structure for custom allocators
  *  to be used with allocVector3()
  *
- * Not API
+ *  allocVector3 is also not declared as API in
+ *  Rinternals.h nor documented in R-exts.
  */
 
 #ifndef R_EXT_RALLOCATORS_H_

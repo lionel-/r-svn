@@ -6,7 +6,7 @@
  *  This header file is designed to be platform-independent.
  *
  *  Copyright 2006-8	The R Foundation
- *  Copyright 2013-24	The R Core Team
+ *  Copyright 2013-25	The R Core Team
  *
  */
 
@@ -21,6 +21,11 @@
  *  Assume C declarations for C++
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <R_ext/libextern.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* begin normal C declarations */
@@ -29,8 +34,6 @@ extern "C" {
  *  Definition of some constants.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 
 #ifndef Pi
 #define Pi 3.14159265359
@@ -539,6 +542,7 @@ typedef void (*imfn)(control c, font *f, point *xy);
 #define scrolltext		GA_scrolltext
 #define selecttext		GA_selecttext
 #define selecttextex		GA_selecttextex
+#define sendmessage_unwind	GAI_sendmessage_unwind
 #define setaction		GA_setaction
 #define setbackground		GA_setbackground
 #define setbitmapdata		GA_setbitmapdata
@@ -1251,7 +1255,6 @@ void	showcaret(control c, int showing);
  *  Library supplied variables.
  */
 
-#include <R_ext/libextern.h>
 #undef LibExtern
 #ifdef GA_DLL_BUILD
 # define LibExtern extern

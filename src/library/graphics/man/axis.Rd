@@ -39,7 +39,7 @@ axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
   \item{outer}{a logical value indicating whether the axis should be
     drawn in the outer plot margin, rather than the standard plot
     margin.}
-  \item{font}{font for text.  Defaults to \code{par("font")}.}
+  \item{font}{font for text.  Defaults to \code{par("font.axis")}.}
   \item{lty}{line type for both the axis line and the tick marks.}
   \item{lwd, lwd.ticks}{line widths for the axis line and the tick
     marks.  Zero or negative values will suppress the line or ticks.}
@@ -155,9 +155,7 @@ axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
   in \code{\link{par}}.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
-  \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.
+  \bibshow{R:Becker+Chambers+Wilks:1988}
 }
 \examples{
 require(stats) # for rnorm

@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1997-2023 The R Core Team
+ *  Copyright (C) 1997-2025 The R Core Team
  *  Copyright (C) 1995-1996 Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -132,7 +132,7 @@ static SEXP Rf_MakeDLLInfo(DllInfo *info);
 
 static SEXP createRSymbolObject(SEXP sname, DL_FUNC f,
 				R_RegisteredNativeSymbol *symbol,
-				Rboolean withRegistrationInfo);
+				bool withRegistrationInfo);
 
 static DllInfo *R_RegisterDLL(HINSTANCE handle, const char *path);
 
@@ -278,6 +278,7 @@ DllInfo *R_getEmbeddingDllInfo(void)
     return dll;
 }
 
+// API, in header R_ext/Rdynload.h
 Rboolean R_useDynamicSymbols(DllInfo *info, Rboolean value)
 {
     Rboolean old;
@@ -286,6 +287,7 @@ Rboolean R_useDynamicSymbols(DllInfo *info, Rboolean value)
     return old;
 }
 
+// API, in header R_ext/Rdynload.h
 Rboolean R_forceSymbols(DllInfo *info, Rboolean value)
 {
     Rboolean old;
@@ -321,7 +323,7 @@ R_addExternalRoutine(DllInfo *info,
  R_init_<object name> is passed the DllInfo reference as an argument.
  Other routines must explicitly request it using this routine.
  */
-DllInfo *
+attribute_hidden DllInfo *
 R_getDllInfo(const char *path)
 {
     int i;
@@ -371,6 +373,8 @@ R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
 	for(num = 0; croutines[num].name != NULL; num++) {;}
 	info->CSymbols = (Rf_DotCSymbol*)calloc((size_t) num,
 						sizeof(Rf_DotCSymbol));
+	if (!info->CSymbols)
+	    error("allocation failure in R_registerRoutines");
 	info->numCSymbols = num;
 	for(i = 0; i < num; i++) {
 	    R_addCRoutine(info, croutines+i, info->CSymbols + i);
@@ -382,6 +386,10 @@ R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
 	info->FortranSymbols =
 	    (Rf_DotFortranSymbol*)calloc((size_t) num,
 					 sizeof(Rf_DotFortranSymbol));
+	if (!info->FortranSymbols) {
+	    free(info->CSymbols);
+	    error("allocation failure in R_registerRoutines");
+	}
 	info->numFortranSymbols = num;
 	for(i = 0; i < num; i++)
 	    R_addFortranRoutine(info, fortranRoutines+i,
@@ -392,6 +400,11 @@ R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
 	for(num = 0; callRoutines[num].name != NULL; num++) {;}
 	info->CallSymbols =
 	    (Rf_DotCallSymbol*)calloc((size_t) num, sizeof(Rf_DotCallSymbol));
+	if (!info->CallSymbols) {
+	    free(info->CSymbols);
+	    free(info->FortranSymbols);
+	    error("allocation failure in R_registerRoutines");
+	}
 	info->numCallSymbols = num;
 	for(i = 0; i < num; i++)
 	    R_addCallRoutine(info, callRoutines+i, info->CallSymbols + i);
@@ -402,6 +415,12 @@ R_registerRoutines(DllInfo *info, const R_CMethodDef * const croutines,
 	info->ExternalSymbols =
 	    (Rf_DotExternalSymbol*)calloc((size_t) num,
 					  sizeof(Rf_DotExternalSymbol));
+	if (!info->ExternalSymbols) {
+	    free(info->CSymbols);
+	    free(info->FortranSymbols);
+	    free(info->CallSymbols);
+	    error("allocation failure in R_registerRoutines");
+	}
 	info->numExternalSymbols = num;
 
 	for(i = 0; i < num; i++)
@@ -672,7 +691,7 @@ Rf_freeDllInfo(DllInfo *info)
 typedef void (*DllInfoUnloadCall)(DllInfo *);
 typedef DllInfoUnloadCall DllInfoInitCall;
 
-static Rboolean
+static bool
 R_callDLLUnload(DllInfo *dllInfo)
 {
     char buf[1024];
@@ -1107,6 +1126,8 @@ R_dlsym(DllInfo *info, char const *name,
     snprintf(buf, len, "_%s", name);
 #endif
 
+/* HAVE_F77_EXTRA_UNDERSCORE is only use here and not in F77_NAME etc.
+   It seems of only historical interest */
 #ifdef HAVE_F77_UNDERSCORE
     if(symbol && symbol->type == R_FORTRAN_SYM) {
 	strcat(buf, "_");
@@ -1468,7 +1489,7 @@ R_getSymbolInfo(SEXP sname, SEXP spackage, SEXP withRegistrationInfo)
 
     if(f)
 	sym = createRSymbolObject(sname, f, &symbol,
-				  LOGICAL(withRegistrationInfo)[0]);
+				  asBool2(withRegistrationInfo, R_NilValue));
 
     vmaxset(vmax);
     return sym;
@@ -1509,7 +1530,7 @@ R_getDllTable(void)
 
 static SEXP
 createRSymbolObject(SEXP sname, DL_FUNC f, R_RegisteredNativeSymbol *symbol,
-		    Rboolean withRegistrationInfo)
+		    bool withRegistrationInfo)
 {
     SEXP tmp, klass, sym, names;
     int n = (symbol->type != R_ANY_SYM) ? 4 : 3;
@@ -1714,7 +1735,7 @@ static SEXP get_package_CEntry_table(const char *package)
 	R_PreserveObject(CEntryTable);
     }
     pname = install(package);
-    penv = findVarInFrame(CEntryTable, pname);
+    penv = R_findVarInFrame(CEntryTable, pname);
     if (penv == R_UnboundValue) {
 	penv = R_NewHashedEnv(R_NilValue, 0);
 	defineVar(pname, penv, CEntryTable);
@@ -1738,7 +1759,7 @@ DL_FUNC R_GetCCallable(const char *package, const char *name)
 {
     SEXP penv = get_package_CEntry_table(package);
     PROTECT(penv);
-    SEXP eptr = findVarInFrame(penv, install(name));
+    SEXP eptr = R_findVarInFrame(penv, install(name));
     UNPROTECT(1);
     if (eptr == R_UnboundValue)
 	error(_("function '%s' not provided by package '%s'"), name, package);

@@ -92,7 +92,7 @@ unlink("myLib", recursive = TRUE)
 dir.create("myLib")
 install.packages("myTst", lib = "myLib", repos=NULL, type = "source")
 print(installed.packages(lib.loc= "myLib", priority= "NA"))## (PR#13332)
-stopifnot(require("myTst",lib = "myLib"))
+stopifnot(require("myTst", lib.loc = "myLib"))
 sm <- findMethods(show, where= as.environment("package:myTst"))
 stopifnot(sm@names == "foo")
 unlink("myTst_*")
@@ -130,7 +130,7 @@ if(interactive() && Sys.getenv("USER") == "maechler")
 ## SRCDIR not available on windows, so pkgSrcPath won't be populated
 ## if this happens non-interactively, cleanup and quit gracefully
 if(!file_test("-d", pkgSrcPath) && !interactive()) {
-    unlink("myTst", recursive=TRUE)
+    unlink(c("myTst", "myLib", "myTst2"), recursive=TRUE)
     showProc.time()
     q("no")
 }
@@ -323,7 +323,8 @@ system.time(status <-
                          out = tf,
                          ## avoid delays/timeouts with a broken network route:
                          env = c("R_REPOSITORIES=NULL"), # (no cyclic dep check)
-                         timeout = 50))# see 5--7 sec; Solaris needed > 30
+                         timeout = 50))# seen 2--7 sec; Solaris needed > 30
+if (!identical(status, 124L)) # avoid "random" failures on slow systems
 stopifnot(exprs = {
     status == 1 # an ERROR now
     is.character(exLines <-
@@ -400,10 +401,14 @@ if(okA) {
   if(interactive()) { ## << "FIXME!"  This (sink(.) ..) fails, when run via 'make'.
     ## install.packages() should give "the correct" error but we cannot catch it
     ## One level lower is not much better, needing sink() as capture.output() fails
-    ftf <- file(tf <- tempfile("inst_pkg"), open = "wt")
-    sink(ftf); sink(ftf, type = "message")# "message" should be sufficient
-    eval(instEXPR)
-    sink(type="message"); sink()## ; close(ftf); rm(ftf)# end sink()
+    tryInst <- function(tfile) {
+        ftf <- file(tfile, open = "wt")
+        sink(ftf); sink(ftf, type = "message")# "message" should be sufficient
+        on.exit({ sink(type="message"); sink(); close(ftf) })
+        eval(instEXPR)
+    }
+    tf <- tempfile("inst_pkg")
+    instR <- tryInst(tf)
     writeLines(paste(" ", msgs <- readLines(tf)))
     message(err <- grep("^ERROR:", msgs, value=TRUE))
     stopifnot(exprs = {
@@ -418,12 +423,53 @@ if(okA) {
 } else message("pkgA/DESCRIPTION  not available")
 showProc.time()
 
+if (requireNamespace("PkgC", lib.loc = "myLib")) {
+    (r <- methods(PkgC:::foobar))# "should" return non-empty even when neither S3 generic nor method was exported
+    meths <- paste("foobar", c("Date", "default"), sep = ".")
+    try(PkgC:::foobar(pi))    # -> foobar.default is *not* 'found'
+    if(FALSE) # not working when run via `make`
+        PkgC:::foobar(Sys.Date()) # -> foobar.Date   *is* found b/c  S3method(.)
+    stopifnot(exprs = {
+        inherits(r, "MethodsFunction")
+        r == meths # may change if add an extra star
+        nrow(mi <- attr(r, "info")) == 2
+        identical(meths, rownames(mi))
+    })
+    ## failed up to R 4.4.x
+}
 
-## R CMD check should *not* warn about \Sexpr{} built sections in Rd (PR#17479):
+
+## isNamespaceLoaded() / loadedNamespaces() must not report a package whose
+## namespace is registered but still loading (R-devel thread
+## 2022-January/081431).  Loading testIsLoadedDownstream runs its .onLoad,
+## which loads testIsLoadedUpstream; upstream's .onLoad in turn probes
+## isNamespaceLoaded("testIsLoadedDownstream") while downstream is still
+## loading.  When that wrongly returned TRUE, the upstream hook called
+## downstream() before downstream's exports were sealed, failing with
+##   'downstream' is not an exported object from 'namespace:testIsLoadedDownstream'
+for(p in c("testIsLoadedUpstream", "testIsLoadedDownstream")) { # upstream first
+    r <- build.pkg(file.path(pkgPath, p), ignore.stderr = TRUE)
+    ## --no-test-load so the cyclic load is triggered by the loadNamespace()
+    ## below, not implicitly by R CMD INSTALL's test load
+    install.packages(r, lib = "myLib", repos = NULL, type = "source",
+                     INSTALL_opts = "--no-test-load")
+}
+loadNamespace("testIsLoadedDownstream") # errored before the fix
+stopifnot(isNamespaceLoaded("testIsLoadedDownstream"),
+          isNamespaceLoaded("testIsLoadedUpstream"),
+          "testIsLoadedDownstream" %in% loadedNamespaces(),
+          "testIsLoadedUpstream"   %in% loadedNamespaces())
+showProc.time()
+
+
+### Checking Rd files in 'exSexpr'
+
 writeLines(msg <- capture.output(
     tools:::.check_package_parseRd(dir = file.path(pkgPath, "exSexpr"),
                                    minlevel = -Inf)
 ))
+
+## R CMD check should *not* warn about \Sexpr{} built sections in Rd (PR#17479):
 if(length(ifoo <- grep("foo.Rd", msg, fixed = TRUE)))
     stop(".check_package_parseRd() complained about foo.Rd in\n",
          paste0(msg[ifoo], collapse = "\n"))
@@ -460,7 +506,8 @@ stopifnot(exprs = {
 any(grepl("See Also:", helptxt, fixed = TRUE)) == (.Platform$OS.type == "windows")
 
 ## post-build macros can contain conditional defines
-tools::Rd2txt(installedRdDB[["nestedDefinesOK.Rd"]])
+tools::Rd2txt(installedRdDB[["nestedDefinesOK.Rd"]],
+              options = list(underline_titles = FALSE))
 deparsedLines <- as.character(installedRdDB[["nestedDefinesOK.Rd"]])
 stopifnot(("unix" %in% deparsedLines) == (.Platform$OS.type == "unix"),
           ("windows" %in% deparsedLines) == (.Platform$OS.type == "windows"))

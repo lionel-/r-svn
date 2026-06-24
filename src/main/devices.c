@@ -39,18 +39,11 @@
 
 int baseRegisterIndex = -1;
 
-GPar* dpptr(pGEDevDesc dd) {
-    if (baseRegisterIndex == -1)
-	error(_("the base graphics system is not registered"));
-    baseSystemState *bss = dd->gesd[baseRegisterIndex]->systemSpecific;
-    return &(bss->dp);
-}
-
 static SEXP R_INLINE getSymbolValue(SEXP symbol)
 {
     if (TYPEOF(symbol) != SYMSXP)
 	error("argument to 'getSymbolValue' is not a symbol");
-    return findVar(symbol, R_BaseEnv);
+    return R_findVar(symbol, R_BaseEnv);
 }
 
 /*
@@ -143,7 +136,7 @@ pGEDevDesc GEcurrentDevice(void)
 		grDevices need not be in the search path.
 		So we look for it first on the global search path.
 	    */
-	    defdev = findVar(devName, R_GlobalEnv);
+	    defdev = R_findVar(devName, R_GlobalEnv);
 	    if(defdev != R_UnboundValue) {
 		PROTECT(defdev = lang1(devName));
 		eval(defdev, R_GlobalEnv);
@@ -154,11 +147,11 @@ pGEDevDesc GEcurrentDevice(void)
 		   The option is unlikely to be set if it is not loaded,
 		   as the default setting is in grDevices:::.onLoad.
 		*/
-		SEXP ns = findVarInFrame(R_NamespaceRegistry,
-					 install("grDevices"));
+		SEXP ns = R_findVarInFrame(R_NamespaceRegistry,
+					   install("grDevices"));
 		PROTECT(ns);
 		if(ns != R_UnboundValue &&
-		   findVar(devName, ns) != R_UnboundValue) {
+		   R_findVar(devName, ns) != R_UnboundValue) {
 		    PROTECT(defdev = lang1(devName));
 		    eval(defdev, ns);
 		    UNPROTECT(1);
@@ -331,11 +324,24 @@ void removeDevice(int devNum, Rboolean findNext)
 
 void GEkillDevice(pGEDevDesc gdd)
 {
+    Rboolean lock = gdd ? gdd->lock : FALSE;
+    if (lock) {
+        warning(_("can't shut down a locked device"));
+        return;
+    }
     removeDevice(GEdeviceNumber(gdd), TRUE);
 }
 
 void killDevice(int devNum)
 {
+    if((devNum > 0) && (devNum < R_MaxDevices) &&
+       (R_Devices[devNum] != NULL) && active[devNum]) {
+        pGEDevDesc g = R_Devices[devNum];
+        if (g && g->lock) {
+            warning(_("can't shut down a locked device"));
+            return;
+        }
+    }
     removeDevice(devNum, TRUE);
 }
 
@@ -383,6 +389,163 @@ pGEDevDesc desc2GEDesc(pDevDesc dd)
 }
 
 /* ------- interface for creating devices ---------- */
+
+/* Create/free DevDesc (as opposed to GEDevDesc) 
+ * Graphics device code should call GEcreateDD() to allocate 
+ * AND initialise a DevDesc
+ * and should call GEfreeDD() if they need to bail out during device creation.
+ * Otherwise, the DevDesc is freed by the graphics engine when the device
+ * is closed via GEdestroyDevDesc()
+ * (so graphics device code does not need free on device close). 
+ */
+
+void noopCircle(double x, double y, double r, 
+                const pGEcontext gc, pDevDesc dd) {}
+void noopClip(double x0, double x1, double y0, double y1, pDevDesc dd) {}
+void noopClose(pDevDesc dd) {}
+void noopLine(double x1, double y1, double x2, double y2,
+              const pGEcontext gc, pDevDesc dd) {}
+void defaultMetricInfo(int c, const pGEcontext gc,
+                       double* ascent, double* descent, double* width,
+                       pDevDesc dd) 
+{ *ascent = dd->cra[1]; *descent = 0; *width = dd->cra[0]; }
+void noopNewPage(const pGEcontext gc, pDevDesc dd) {}
+void noopPolygon(int n, double *x, double *y, 
+                 const pGEcontext gc, pDevDesc dd) {}
+void noopPolyline(int n, double *x, double *y, 
+                  const pGEcontext gc, pDevDesc dd) {}
+void noopRect(double x0, double y0, double x1, double y1,
+              const pGEcontext gc, pDevDesc dd) {}
+double defaultStrWidth(const char *str, const pGEcontext gc, pDevDesc dd) 
+{ return 0; }
+void noopText(double x, double y, const char *str, double rot,
+              double hadj, const pGEcontext gc, pDevDesc dd) {}
+SEXP defaultGetEvent(SEXP eventRho, const char *prompt)
+{ return R_NilValue; }
+void noopTextUTF8(double x, double y, const char *str, double rot,
+                  double hadj, const pGEcontext gc, pDevDesc dd) {}
+double defaultStrWidthUTF8(const char *str, const pGEcontext gc, pDevDesc dd)
+{ return 0; }
+SEXP defaultSetPattern(SEXP pattern, pDevDesc dd)
+{ return R_NilValue; }
+void noopReleasePattern(SEXP ref, pDevDesc dd) {}
+SEXP defaultSetClipPath(SEXP path, SEXP ref, pDevDesc dd)
+{ return R_NilValue; }
+void noopReleaseClipPath(SEXP ref, pDevDesc dd) {}
+SEXP defaultSetMask(SEXP path, SEXP ref, pDevDesc dd)
+{ return R_NilValue; }
+void noopReleaseMask(SEXP ref, pDevDesc dd) {}
+SEXP defaultDefineGroup(SEXP source, int op, SEXP destination, pDevDesc dd) 
+{ return R_NilValue; }
+void noopUseGroup(SEXP ref, SEXP trans, pDevDesc dd) {}
+void noopReleaseGroup(SEXP ref, pDevDesc dd) {}
+void noopStroke(SEXP path, const pGEcontext gc, pDevDesc dd) {}
+void noopFill(SEXP path, int rule, const pGEcontext gc, pDevDesc dd) {}
+void noopFillStroke(SEXP path, int rule, const pGEcontext gc, pDevDesc dd) {}
+SEXP defaultCapabilities(SEXP cap)
+{ return cap; }
+void noopGlyph(int n, int *glyphs, double *x, double *y, 
+               SEXP font, double size,
+               int colour, double rot, pDevDesc dd) {}
+ 
+pDevDesc GEcreateDD() 
+{
+    pDevDesc dd;
+    dd = (pDevDesc) calloc(1, sizeof(DevDesc));
+    /* Initialise DevDesc with some defaults - device code can override 
+     * 1inch device with 100dpi and 10pt text
+     */
+    dd->left = 0;
+    dd->right = 100;
+    dd->bottom = 0;
+    dd->top = 100;
+    dd->clipLeft = 0;
+    dd->clipRight = 100;
+    dd->clipBottom = 0;
+    dd->clipTop = 100;
+    dd->xCharOffset = 0;
+    dd->yCharOffset = 0;
+    dd->yLineBias = 0;
+    dd->ipr[0] = 1.0/100.0;
+    dd->ipr[1] = 1.0/100.0;
+    dd->cra[0] = 0.6 * 10 * 100.0/72.0;
+    dd->cra[1] = 1.0 * 10 * 100.0/72.0;
+    dd->gamma = 1;
+    dd->canClip = FALSE;
+    dd->canChangeGamma = FALSE;
+    dd->canHAdj = 0;
+    dd->startps = 10;
+    dd->startcol = R_GE_str2col("black");
+    dd->startfill = R_GE_str2col("transparent");
+    dd->startlty = 0;
+    dd->startfont = 1;
+    dd->startgamma = 1;
+    dd->deviceSpecific = NULL;
+    dd->displayListOn = FALSE;
+    dd->canGenMouseDown = FALSE;
+    dd->canGenMouseMove = FALSE;
+    dd->canGenMouseUp = FALSE;
+    dd->canGenKeybd = FALSE;
+    dd->canGenIdle = FALSE;
+    dd->gettingEvent = FALSE;
+    dd->activate = NULL;
+    dd->circle = noopCircle;
+    dd->clip = noopClip;
+    dd->close = noopClose;
+    dd->deactivate = NULL;
+    dd->locator = NULL;
+    dd->line = noopLine;
+    dd->metricInfo = defaultMetricInfo;
+    dd->mode = NULL;
+    dd->newPage = noopNewPage;
+    dd->polygon = noopPolygon;
+    dd->polyline = noopPolyline;
+    dd->rect = noopRect;
+    dd->path = NULL;
+    dd->raster = NULL;
+    dd->cap = NULL;
+    dd->size = NULL;
+    dd->strWidth = defaultStrWidth;
+    dd->text = noopText;
+    dd->onExit = NULL;
+    dd->getEvent = defaultGetEvent;
+    dd->newFrameConfirm = NULL;
+    dd->hasTextUTF8 = FALSE;
+    dd->textUTF8 = noopTextUTF8;
+    dd->strWidthUTF8 = defaultStrWidthUTF8;
+    dd->wantSymbolUTF8 = FALSE;
+    dd->useRotatedTextInContour = FALSE;
+    dd->eventEnv = NULL;
+    dd->eventHelper = NULL;
+    dd->holdflush = NULL;
+    dd->haveTransparency = 1; 
+    dd->haveTransparentBg = 1; 
+    dd->haveRaster = 1; 
+    dd->haveCapture = 1;
+    dd->haveLocator = 1;
+    dd->setPattern = defaultSetPattern;
+    dd->releasePattern = noopReleasePattern;
+    dd->setClipPath = defaultSetClipPath;
+    dd->releaseClipPath = noopReleaseClipPath;
+    dd->setMask = defaultSetMask;
+    dd->releaseMask = noopReleaseMask;
+    dd->deviceVersion = R_GE_version;
+    dd->deviceClip = FALSE;
+    dd->defineGroup = defaultDefineGroup;
+    dd->useGroup = noopUseGroup;
+    dd->releaseGroup = noopReleaseGroup;
+    dd->stroke = noopStroke;
+    dd->fill = noopFill;
+    dd->fillStroke = noopFillStroke;
+    dd->capabilities = defaultCapabilities;
+    dd->glyph = noopGlyph;
+    return(dd);
+}
+
+void GEfreeDD(pDevDesc dd) 
+{
+    free(dd);
+}
 
 void R_CheckDeviceAvailable(void)
 {
@@ -508,6 +671,7 @@ pGEDevDesc GEcreateDevDesc(pDevDesc dev)
     }
 #endif
     gdd->recordGraphics = TRUE;
+    gdd->lock = FALSE;
     gdd->ask = Rf_GetOptionDeviceAsk();
     gdd->dev->eventEnv = R_NilValue;  /* gc needs this */
     gdd->appending = FALSE;

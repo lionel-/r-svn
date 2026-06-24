@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998-2024   The R Core Team
+ *  Copyright (C) 1998-2026   The R Core Team
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -89,12 +89,9 @@ int findInterval(double *xt, int n, double x,
 		 int *mflag);
 // findInterval2() is only in Utils.h (and hence Rinternals.h)
 
-
-/* ------------------ Entry points NOT in the R API --------------- */
+/* The following are registered for use in .Fortran */
 
-/* The following are registered for use in .C/.Fortran */
-
-/* appl/dqrutl.f: interfaces to dqrsl */
+/* ../../appl/dqrutl.f: interfaces to dqrsl */
 void F77_NAME(dqrqty)(double *x, int *n, int *k, double *qraux,
 		      double *y, int *ny, double *qty);
 void F77_NAME(dqrqy)(double *x, int *n, int *k, double *qraux,
@@ -105,19 +102,31 @@ void F77_NAME(dqrrsd)(double *x, int *n, int *k, double *qraux,
 		     double *y, int *ny, double *rsd);
 void F77_NAME(dqrxb)(double *x, int *n, int *k, double *qraux,
 		     double *y, int *ny, double *xb);
-
+/* find qr decomposition, dqrdc2() is basis of R's qr(),
+   also used by nlme and many other packages. */
+void F77_NAME(dqrdc2)(double *x, int *ldx, int *n, int *p,
+		      double *tol, int *rank,
+		      double *qraux, int *pivot, double *work);
 /* end of registered */
-
+void F77_NAME(dqrls)(double *x, int *n, int *p, double *y, int *ny,
+		     double *tol, double *b, double *rsd,
+		     double *qty, int *k,
+		     int *jpvt, double *qraux, double *work);
+/* dtrco (for .kappa.tri) is registered but not in the API */
+    
+/* ------------------ Entry points NOT in the R API --------------- */
+
 /* hidden, for use in R.bin/R.dll/libR.so */
 
 /* appl/pretty.c: for use in engine.c and util.c
    FIXME: move out of this header
 */
+#ifdef USE_BASE_R_SUPPORT
 double R_pretty(double *lo, double *up, int *ndiv, int min_n,
 		double shrink_sml, const double high_u_fact[],
 		int eps_correction, int return_bounds);
+#endif
 
-
 /* For use in package stats */
 
 /* appl/uncmin.c : */
@@ -128,11 +137,13 @@ typedef void (*fcn_p)(int, double *, double *, void *);
 /* type of pointer to the hessian functions */
 typedef void (*d2fcn_p)(int, int, double *, double *, void *);
 
+#ifdef USE_BASE_R_SUPPORT
 void fdhess(int n, double *x, double fval, fcn_p fun, void *state,
 	    double *h, int nfd, double *step, double *f, int ndigit,
 	    double *typx);
+#endif
 
-/* Foremerly used in package nlme, still used by pcaPP */
+/* Also used in packages nlme, pcaPP. Part of the experimental API. */
 void optif9(int nr, int n, double *x,
 	    fcn_p fcn, fcn_p d1fcn, d2fcn_p d2fcn,
 	    void *state, double *typsiz, double fscale, int method,
@@ -140,16 +151,6 @@ void optif9(int nr, int n, double *x,
 	    int iahflg, double dlt, double gradtl, double stepmx,
 	    double steptl, double *xpls, double *fpls, double *gpls,
 	    int *itrmcd, double *a, double *wrk, int *itncnt);
-
-/* find qr decomposition, dqrdc2() is basis of R's qr(),
-   also used by nlme and many other packages. */
-void F77_NAME(dqrdc2)(double *x, int *ldx, int *n, int *p,
-		      double *tol, int *rank,
-		      double *qraux, int *pivot, double *work);
-void F77_NAME(dqrls)(double *x, int *n, int *p, double *y, int *ny,
-		     double *tol, double *b, double *rsd,
-		     double *qty, int *k,
-		     int *jpvt, double *qraux, double *work);
 
 #ifdef  __cplusplus
 }

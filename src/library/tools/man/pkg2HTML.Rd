@@ -18,11 +18,12 @@ pkg2HTML(package, dir = NULL, lib.loc = NULL,
          texmath = getOption("help.htmlmath"),
          prism = TRUE,
          out = NULL,
-         toc_entry = c("title", "name"),
+         toc_entry = c("name", "title"),
          ...,
          Rhtml = FALSE,
          mathjax_config = file.path(R.home("doc"), "html", "mathjax-config.js"),
-         include_description = TRUE)
+         include_description = TRUE,
+         concordance = FALSE)
 }
 \arguments{
   \item{package}{ typically a character string giving the name of an
@@ -56,8 +57,8 @@ pkg2HTML(package, dir = NULL, lib.loc = NULL,
     \code{\link{Rd2HTML}}.
   }
   \item{out}{a filename or connection object to which to write the
-    output.  The default \code{out = ""} is equivalent to
-    \code{out = \link{stdout}()}.}
+    output.  By default (\code{NULL}), the filename is inferred from
+    \code{hooks$pkg_href}, which defaults to \file{\var{pkg}.html}.}
   \item{toc_entry}{ Determines whether the entry for a help page in the
     table of contents is the name of the help page or its title. }
   \item{...}{additional arguments, passed on to
@@ -75,6 +76,8 @@ pkg2HTML(package, dir = NULL, lib.loc = NULL,
   \item{include_description}{ logical flag indicating whether the output
     should begin with the contents of the \code{DESCRIPTION} file.
   }
+  \item{concordance}{ logical flag indicating whether the output
+    should contain concordance information.}
 }
 
 \details{

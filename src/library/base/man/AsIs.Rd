@@ -24,7 +24,8 @@ I(x)
   \itemize{
     \item In function \code{\link{data.frame}}.  Protecting an object by
     enclosing it in \code{I()} in a call to \code{data.frame} inhibits the
-    conversion of character vectors to factors and the dropping of
+    conversion of character vectors to factors (only relevant if
+    \code{stringsAsFactors = TRUE}) and the dropping of
     names, and ensures that matrices are inserted as single columns.
     \code{I} can also be used to protect objects which are to be
     added to a data frame, or converted to a data frame \emph{via}
@@ -45,10 +46,7 @@ I(x)
   A copy of the object with class \code{"AsIs"} prepended to the class(es).
 }
 \references{
-  Chambers, J. M. (1992)
-  \emph{Linear models}.
-  Chapter 4 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992:c4}
 }
 \seealso{
   \code{\link{data.frame}}, \code{\link{formula}}

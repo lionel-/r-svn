@@ -145,20 +145,24 @@ function(dir,
         ## Determine and download reverse dependencies to be checked as
         ## well.
 
-        reverse <- as.list(reverse)
-        ## Merge with defaults, using partial name matching.
         defaults <- list(which = c("Depends", "Imports", "LinkingTo"),
                          recursive = FALSE,
                          repos = getOption("repos"))
-        pos <- pmatch(names(reverse), names(defaults), nomatch = 0L)
-        defaults[pos] <- reverse[pos > 0L]
+        if(!is.character(reverse)) {
+            reverse <- as.list(reverse)
+            ## Merge with defaults, using partial name matching.
+            pos <- pmatch(names(reverse), names(defaults), nomatch = 0L)
+            defaults[pos] <- reverse[pos > 0L]
+        }
 
         subset_reverse_repos <- !identical(defaults$repos, getOption("repos"))
         if(subset_reverse_repos &&
            !all(defaults$repos %in% getOption("repos")))
             stop("'reverse$repos' should be a subset of getOption(\"repos\")")
 
-        rnames <- if(is.list(defaults$which)) {
+        rnames <- if(is.character(reverse)) {
+            reverse
+        } else if(is.list(defaults$which)) {
             ## No recycling of repos for now.
             defaults$recursive <- rep_len(as.list(defaults$recursive),
                                           length(defaults$which))
@@ -216,17 +220,27 @@ function(dir,
                           available[pos, "Version"])
 
         if(length(rfiles)) {
-            message("downloading reverse dependencies ...")
+            msg <- gettextf("downloading reverse dependencies %s",
+                            paste(sQuote(rnames), collapse = ", "))
+            msg <- paste(strwrap(msg, exdent = 2L), collapse = "\n")
+            message(msg, "\n", domain = NA)
             rfurls <- sprintf("%s/%s",
                               available[pos, "Repository"],
                               rfiles)
-            for(i in seq_along(rfiles)) {
-                message(sprintf("downloading %s ... ", rfiles[i]),
-                        appendLF = FALSE)
-                status <- if(!utils::download.file(rfurls[i], rfiles[i],
-                                                   quiet = TRUE))
-                    "ok" else "failed"
-                message(status)
+            status <- utils::download.file(rfurls, rfiles,
+                                           method = "libcurl",
+                                           mode = "wb")
+            if(status != 0L || any(rv <- attr(status, "retvals"))) {
+                fails <- if(status != 0L) rnames else rnames[rv != 0L]
+                n <- length(fails)
+                msg <-
+                if(n == 1L)
+                    gettextf("download of reverse dependency %s failed",
+                             sQuote(fails))
+                else
+                    gettextf("download of %d reverse dependencies failed:\n  %s",
+                             n, paste(sQuote(fails), collapse = ", "))
+                message(msg, domain = NA)
             }
             message("")
         }
@@ -745,19 +759,6 @@ function(log, drop = TRUE, ...)
         }
     }
 
-    ## ## <FIXME>
-    ## ## Remove eventually.
-    ## len <- length(lines)
-    ## end <- lines[len]
-    ## if(length(end) &&
-    ##    grepl(re <- "^(\\*.*\\.\\.\\.)(\\* elapsed time.*)$", end,
-    ##          perl = TRUE, useBytes = TRUE)) {
-    ##     lines <- c(lines[seq_len(len - 1L)],
-    ##                sub(re, "\\1", end, perl = TRUE, useBytes = TRUE),
-    ##                sub(re, "\\2", end, perl = TRUE, useBytes = TRUE))
-    ## }
-    ## ## </FIXME
-
     lines
 }
 
@@ -785,7 +786,7 @@ function(log, drop_ok = TRUE, ...)
         drop_ok_status_tags <- drop_ok
         drop_ok <- TRUE
     } else {
-        drop_ok_status_tags <- c("OK", "NONE", "SKIPPED")
+        drop_ok_status_tags <- c("OK", "NONE", "SKIPPED", "INFO")
     }
 
     ## Start by reading in.
@@ -847,11 +848,14 @@ function(log, drop_ok = TRUE, ...)
     ## Get footer.
     len <- length(lines)
     pos <- which(lines == "* DONE")
-    if(length(pos) &&
-       ((pos <- pos[length(pos)]) < len) &&
-       startsWith(lines[pos + 1L], "Status: "))
-        lines <- lines[seq_len(pos - 1L)]
-    else {
+    if(length(pos)) {
+        for(pos in rev(pos[pos < len])) {
+            if(startsWith(lines[pos + 1L], "Status: ")) {
+                lines <- lines[seq_len(pos - 1L)]
+                break
+            }
+        }
+    } else {
         ## Not really new style, or failure ... argh.
         ## Some check systems explicitly record the elapsed time in the
         ## last line:
@@ -1128,16 +1132,14 @@ function(new, old, outputs = FALSE)
 
     ## Drop checks that are OK in both versions
     x.issue <- !is.na(match(db$Status.x,
-                            c("ERROR","FAILURE","NOTE","WARNING")))
+                            c("NOTE", "WARNING", "ERROR", "FAILURE")))
     y.issue <- !is.na(match(db$Status.y,
-                            c("ERROR","FAILURE","NOTE","WARNING")))
+                            c("NOTE", "WARNING", "ERROR", "FAILURE")))
     db <- db[x.issue | y.issue,]
 
     ## Even with the above simplification, missing entries do not
     ## necessarily indicate "OK" (checks could have been skipped).
     ## Hence leave as missing and show as empty in the diff.
-    ## An exception to this rule is made if we find an "ERROR" result
-    ## as this may explain skipped checks.
 
     sx <- as.character(db$Status.x)
     sy <- as.character(db$Status.y)

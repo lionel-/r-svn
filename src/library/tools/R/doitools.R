@@ -88,7 +88,7 @@ function(x)
 }
 
 doi_db_from_package_sources <-
-function(dir, add = FALSE, Rd = FALSE)
+function(dir, add = FALSE, Rd = TRUE)
 {
     meta <- .get_package_metadata(dir, FALSE)
     db <- rbind(doi_db_from_package_metadata(meta),
@@ -254,4 +254,11 @@ function(x, ...)
     if(NROW(x))
         writeLines(paste(format(x), collapse = "\n\n"))
     invisible(x)
+}
+
+check_package_dois <-
+function(dir, verbose = FALSE)
+{
+    db <- doi_db_from_package_sources(dir, Rd = TRUE)
+    check_doi_db(db, verbose = verbose, parallel = TRUE)
 }

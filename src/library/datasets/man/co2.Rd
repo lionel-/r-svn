@@ -1,6 +1,6 @@
 % File src/library/datasets/man/co2.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2025 R Core Team
 % Distributed under GPL 2 or later
 
 \name{co2}
@@ -27,16 +27,14 @@
   University of California,
   La Jolla, California USA 92093-0220.
 
-  \url{https://scrippsco2.ucsd.edu/data/atmospheric_co2/}.
+  \url{https://www.scrippsco2.ucsd.edu/data/atmospheric_co2/}.
 
   Note that the data are subject to revision (based on recalibration of
   standard gases) by the Scripps institute, and hence may not agree
   exactly with the data provided by \R.
 }
 \references{
-  Cleveland, W. S. (1993)
-  \emph{Visualizing Data}.
-  New Jersey: Summit Press.
+  \bibshow{R:Cleveland:1993}
 }
 \examples{
 require(graphics)

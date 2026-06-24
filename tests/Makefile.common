@@ -64,6 +64,8 @@ test-src-reg-1 = array-subset.R \
 ## added to in Makefile.win
 test-src-reg-1e =
 test-src-reg = $(test-src-reg-1) $(test-src-reg-1e)
+## to be run with $(R2), not forcing LC_ALL=C
+test-src-reg-enc = reg-encodings.R
 ## overridden in Makefile if recommended packages are not installed.
 ## *-src-reg3 are sloppy (*.Rout may differ from *.Rout.save):
 test-src-reg3 = reg-tests-3.R reg-examples3.R reg-plot-latin1.R
@@ -85,6 +87,7 @@ test-out-primitive = $(test-src-primitive:.R=.Rout)
 test-out-large = $(test-src-large:.R=.Rout)
 test-out-random = $(test-src-random:.R=.Rout)
 test-out-reg = $(test-src-reg:.R=.Rout)
+test-out-reg-enc = $(test-src-reg-enc:.R=.Rout)
 test-out-regexp = $(test-src-regexp:.R=.Rout)
 test-out-reg3 = $(test-src-reg3:.R=.Rout)
 test-out-segfault = $(test-src-segfault:.R=.Rout)
@@ -95,7 +98,7 @@ test-out-misc-dev = $(test-src-misc-dev:.R=.Rout)
 ## This macro is used only for dependencies and for distclean
 test-out = $(test-out-strict) $(test-out-sloppy) $(test-out-demo) $(test-out-gct) \
 	$(test-out-internet) \
-	$(test-out-random) $(test-out-reg) $(test-out-reg3) \
+	$(test-out-random) $(test-out-reg) $(test-out-reg-enc) $(test-out-reg3) \
 	$(test-out-segfault) $(test-out-isas) \
 	$(test-out-internet2) $(test-out-internet-dev) \
 	$(test-out-CRANtools) $(test-out-large) $(test-out-primitive) $(test-out-dt) \
@@ -105,11 +108,6 @@ test-out = $(test-out-strict) $(test-out-sloppy) $(test-out-demo) $(test-out-gct
 .SUFFIXES:
 .SUFFIXES: .R .Rin .Rout .Rout-gct .Rout-valgct .trin .tsin .log
 
-## This ensures "they" always re-run [a big WASTE for parallel make -j<n> !]
-$(test-out): FORCE
-
-FORCE:
-
 .Rin.R:
 	@$(ECHO) "creating '$@'"
 	@$(R) < $< > /dev/null
@@ -117,18 +115,29 @@ FORCE:
 .R.Rout:
 	@rm -f $@ $@.fail $@.log
 	@$(ECHO) $(ECHO_N) "running code in '$<' ...$(ECHO_C)" > $@.log
-	@$(R) < $< > $@.fail 2>&1 || (cat $@.log && rm $@.log && exit 1)
+	@$(R) < $< > $@.fail 2>&1 || { \
+	  $(ECHO) "$(ECHO_T) FAILED" >> $@.log; \
+	  $(ECHO) "==> $@.fail <==" >> $@.log; \
+	  tail $@.fail >>$@.log; \
+	  cat $@.log && rm $@.log && exit 1; \
+	}
 	@$(ECHO) "$(ECHO_T) OK" >> $@.log
 	@if test -f $(srcdir)/$@.save ; then \
 	  $(ECHO) $(ECHO_N) \
 	    "  comparing '$@' to '$(srcdir)/$@.save' ...$(ECHO_C)" >> $@.log; \
-	  $(RDIFF) $@.fail $(srcdir)/$@.save $(RVAL_IF_DIFF) >> $@.log \
-	    || (cat $@.log && rm $@.log && exit 1) || exit 1; \
-	  mv $@.fail $@; \
-	  $(ECHO) "$(ECHO_T) OK" >> $@.log; \
-	else \
-	  mv $@.fail $@; \
+	  out=`$(RDIFF) $@.fail $(srcdir)/$@.save $(RVAL_IF_DIFF)`; \
+	  val=$${?}; \
+	  test $${?} -eq 0 || \
+	    ($(ECHO) $${out} >> $@.log && cat $@.log && rm $@.log && exit 1) || \
+	    exit 1; \
+	  if test -n "$${out}"; then \
+	    $(ECHO) "$(ECHO_T) NOTE" >> $@.log; \
+	    $(ECHO) "$${out}" >> $@.log; \
+	  else \
+	    $(ECHO) "$(ECHO_T) OK" >> $@.log; \
+	  fi \
 	fi
+	@mv $@.fail $@
 	@cat $@.log; rm $@.log
 
 reg-plot.Rout: reg-plot.R
@@ -324,6 +333,7 @@ test-Reg:
 	else \
 	  $(MK) $(test-out-reg) RVAL_IF_DIFF=1; \
 	fi
+	@$(MK) $(test-out-reg-enc) R="$(R2)"
 	@$(MK) $(test-out-reg3) RVAL_IF_DIFF=0
 
 test-Regexp:
@@ -528,6 +538,10 @@ stamp-Packages2: $(PKG_ROBJECTS)
 	    --library="$(top_builddir)/library" RecPackages/$${p}  > $@ 2>&1 || (cat $@ && exit 1)
 	@cat $@
 
+## This ensures that test scripts always re-run (at least in GNU make)
+$(test-out): FORCE
+FORCE:
+
 INSTFILES = README \
 	$(test-src-strict-1) $(test-src-strict-1:.R=.Rout.save) \
 	$(test-src-sloppy-1) $(test-src-sloppy-1:.R=.Rout.save) \
@@ -538,7 +552,7 @@ INSTFILES = README \
 	$(test-src-internet-dev) internet.Rout.save \
 	$(test-src-primitive) \
 	$(test-src-random) p-r-random-tests.Rout.save \
-	$(test-src-reg) $(test-src-reg3) \
+	$(test-src-reg) $(test-src-reg-enc) $(test-src-reg3) \
 	  reg-S4.Rout.save \
 	  reg-IO.Rout.save reg-IO2.Rout.save \
 	  reg-plot.pdf.save reg-tests-2.Rout.save reg-tests-3.Rout.save \

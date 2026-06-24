@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-11 The R Core Team.
+ *  Copyright (C) 2001-24 The R Core Team.
  *
  *  This header file is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -44,6 +44,7 @@
 # endif
 #endif
 
+#include <R_ext/libextern.h>
 #include <R_ext/Boolean.h>
 
 #ifdef __cplusplus
@@ -676,6 +677,8 @@ struct _DevDesc {
     int haveRaster; /* 1 = no, 2 = yes, 3 = except for missing values */
     int haveCapture, haveLocator;  /* 1 = no, 2 = yes */
 
+    /* === Since R_GE_version R_GE_definitions */
+
 #if R_USE_PROTOTYPES
     SEXP (*setPattern)(SEXP pattern, pDevDesc dd);
 #else
@@ -720,10 +723,14 @@ struct _DevDesc {
      */
     int deviceVersion;
 
+    /* === Since R_GE_version R_GE_deviceClip */
+
     /* This can be used to OVERRIDE canClip so that graphics engine
      * leaves ALL clipping to the graphics device 
      */
     Rboolean deviceClip;
+
+    /* === Since R_GE_version R_GE_group */
 
     /* Define a group of shapes that will be drawn together.
      * 
@@ -788,6 +795,9 @@ struct _DevDesc {
 #else
     SEXP (*capabilities)();
 #endif
+
+    /* === Since R_GE_version R_GE_glyphs */
+
 #if R_USE_PROTOTYPES
     void (*glyph)(int n, int *glyphs, double *x, double *y, 
                   SEXP font, double size,
@@ -973,7 +983,6 @@ Rboolean doesIdle(pDevDesc dd);
         Rf_onintr(); \
 } while(0)
     
-#include <R_ext/libextern.h>
 LibExtern Rboolean R_interrupts_suspended;    
 LibExtern int R_interrupts_pending;
 extern void Rf_onintr(void);

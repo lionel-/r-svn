@@ -1,7 +1,7 @@
 #  File src/library/utils/R/sessionInfo.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -53,32 +53,46 @@
                    ver1 <- strsplit(ver, ".", fixed = TRUE)[[1L]]
                    ver2 <- ver1[2L]
                    if(ver1[1L] == "10")
+                       ## We no longer support 10.x, but users do
+                       ## report on very old versions.
                        sprintf("%s %s %s",
                                ifelse(as.numeric(ver2) < 12, "OS X", "macOS"),
                                switch(ver2,
                                       ## 10.6 is earliest that can be installed
+                                      # officially Mac OS X
                                       "6" = "Snow Leopard",
                                       "7" = "Lion",
+                                      # changed to OS X
                                       "8" = "Mountain Lion",
                                       "9" = "Mavericks",
                                       "10" = "Yosemite",
                                       "11" = "El Capitan",
+                                      # changed to macOS
                                       "12" = "Sierra",
                                       "13" = "High Sierra",
                                       "14" = "Mojave",
                                       "15" = "Catalina",
                                       ## used for early pre-releases of Big Sur
-                                      ## and still reported by Xcode 10's SDK
+                                      ## and reported by Xcode 10's SDK
                                       "16" = "Big Sur ...",
                                       ""),
                                ver)
-                   else if(ver1[1L] <= "14")
-                        sprintf("macOS %s %s",
+                   else if(ver1[1L] %in% c(11:15, 26:27))
+                       sprintf("macOS %s %s",
                                switch(ver1[1L],
                                       "11" = "Big Sur",
                                       "12" = "Monterey",
                                       "13" = "Ventura",
-                                      "14" = "Sonoma"),
+                                      # minimum supported on arm64 for 4.6.0
+                                      "14" = "Sonoma",
+                                      "15" = "Sequoia",
+                                      # Apple skipped to 26 in Sept 2025
+                                      "26" = "Tahoe",
+                                      # arm64 only
+                                      "27" = "Golden Gate"
+                                      ## If you add an entry here, you
+                                      ## will need to change the raange above.
+                                      ),
                                ver)
                    else
                        sprintf("macOS %s", ver)
@@ -118,8 +132,9 @@ sessionInfo <- function(package = NULL)
     ## no need to re-encode given what we extract.
     pkgDesc <- lapply(package, packageDescription, encoding = NA)
     if(length(package) == 0) stop("no valid packages were specified")
-    basePkgs <- sapply(pkgDesc,
-                       function(x) !is.null(x$Priority) && x$Priority=="base")
+    basePkgs <- vapply(pkgDesc,
+                       function(x) !is.null(x$Priority) && x$Priority=="base",
+                       NA)
     ## Hmm, see tools:::.get_standard_package_names()$base
     z$basePkgs <- package[basePkgs]
     if(any(!basePkgs)){
@@ -152,9 +167,9 @@ print.sessionInfo <- function(x, locale = TRUE, tzone = locale,
 			      ...)
 {
     mkLabel <- function(L, n) {
-        vers <- sapply(L[[n]], function(x) x[["Version"]])
-        pkg <-  sapply(L[[n]], function(x) x[["Package"]])
-        paste(pkg, vers, sep = "_")
+        paste(vapply(L[[n]], `[[`, "", "Package"),
+              vapply(L[[n]], `[[`, "", "Version"),
+              sep = "_")
     }
 
     cat(x$R.version$version.string, "\n", sep = "")
@@ -162,18 +177,19 @@ print.sessionInfo <- function(x, locale = TRUE, tzone = locale,
     if (!is.null(x$running)) cat("Running under: ",  x$running, "\n", sep = "")
     cat("\n")
     cat("Matrix products: ", x$matprod, "\n", sep = "")
-    blas <- x$BLAS
-    if (is.null(blas)) blas <- ""
-    lapack <- x$LAPACK
-    if (is.null(lapack)) lapack <- ""
+    blas   <- x$BLAS   %||% ""
+    lapack <- x$LAPACK %||% ""
     if (blas == lapack && nzchar(blas))
         cat("BLAS/LAPACK:", blas)
     else {
         if(nzchar(blas))   cat("BLAS:  ",   blas, "\n")
         if(nzchar(lapack)) cat("LAPACK:", lapack)
     }
-    if(nzchar(lapack) && nzchar(LAver <- x$LA_version) && !grepl(LAver, lapack, fixed=TRUE))
-        cat(";  LAPACK version", LAver)
+    if(nzchar(LAver <- x$LA_version)) {
+        if(nzchar(lapack) && !grepl(LAver, lapack, fixed=TRUE))
+            cat(";  LAPACK version", LAver)
+        else cat("  LAPACK version", LAver)
+    }
     cat("\n\n")
     if(RNG) {
         cat("Random number generation:\n"
@@ -261,7 +277,7 @@ toLatex.sessionInfo <-
 			    paste(sort(object$basePkgs), collapse = ", ")),
                       indent = 2, exdent = 4))
 
-    if(length(o.ver <- toLatexPDlist(object$otherPkg)))
+    if(length(o.ver <- toLatexPDlist(object$otherPkgs)))
         z <- c(z,
                strwrap(paste("  \\item Other packages: ", o.ver),
                        indent = 2, exdent = 4))

@@ -7,6 +7,7 @@
 \name{glyphInfo}
 \alias{glyphInfo}
 \alias{glyphFont}
+\alias{glyphFontVariation}
 \alias{glyphFontList}
 \alias{glyphAnchor}
 \alias{glyphWidth}
@@ -20,16 +21,17 @@
 \title{Describe a Set of Typeset Glyphs}
 \description{
   Create an object that contains information about typeset glyphs.
-  This includes glyph identifiers, glyph locations, font and colour
-  information, and metric information.
+  This includes glyph identifiers, glyph locations, font, colour 
+  and rotation information, and metric information.
 }
 
 \usage{
 glyphInfo(id, x, y, font, size, fontList, 
           width, height, hAnchor, vAnchor,
-          col=NA)
+          col=NA, rot=0)
 
-glyphFont(file, index, family, weight, style, PSname=NA)
+glyphFont(file, index, family, weight, style, PSname=NA, variations=NULL)
+glyphFontVariation(...)
 glyphFontList(...)
 glyphAnchor(value, label)
 glyphWidth(w, label="width", left="left")
@@ -62,6 +64,7 @@ glyphJust(just, ...)
     (against which to \code{"bottom"} justify), 
     but can also be result from a call to \code{glyphAnchor()}.}
   \item{col}{An R colour value for each glyph. Can be \code{NA}.}
+  \item{rot}{The angle to rotate each glyph.}
   \item{file}{Character path to font file.}
   \item{index}{Numeric index of font within font file.}
   \item{family}{Character name of font family.}
@@ -69,20 +72,26 @@ glyphJust(just, ...)
   \item{style}{Character style of glyphs (\code{"normal"}, \code{"italic"},
     or \code{"oblique"}).}
   \item{PSname}{The PostScript name for each font. Can be \code{NA}.}
+  \item{variations}{Axis coordinate settings for variable fonts.  Either
+    \code{NULL}, or a call to \code{glyphFontVariation()}, or a named vector,
+    or a named list.}
   \item{value, w, h}{A numeric value.}
   \item{label, left, bottom}{A character value.}
   \item{just}{A justification value. Either a character value like
     \code{"left"} or a numeric value like \code{0}.}
   \item{which}{When \code{x} is numeric, a character value identifying
     which width metric the numeric value is relative to.}
-  \item{\dots}{Further arguments passed to other methods.}
+  \item{\dots}{For \code{glyphFontList()}, one or more
+    \code{glyphFont()}s. For \code{glyphFontVar()}, one or more named
+    numeric values (see Details). Otherwise, further arguments passed to
+    other methods.}
 }
 \value{
   The result from \code{glyphInfo()} is an \code{"RGlyphInfo"} object,
   essentially a data frame with each row
-  containing id, location, font, and colour for a glyph.
-  The metric information (widths and anchors) are stored as attributes
-  of the data frame.
+  containing id, location, font, colour and rotation for a glyph.
+  The metric information (widths and anchors) are stored 
+  as attributes of the data frame.
 
   \code{glyphAnchor()}, \code{glyphWidth()}, and \code{glyphHeight()}
   return values that can be used to specify \code{width}, \code{height},
@@ -129,8 +138,14 @@ glyphJust(just, ...)
   \code{glyphWidthLeft()} and \code{glyphWidthHeight()} provide
   an API for code that needs to access the relevant anchors for
   width and height metrics.
+
+  \code{glyphFontVariation()} accepts arguments of the form \code{wght=100}.
+  Every argument should be named, each name should be 4 ASCII characters
+  long, each name should be either one of the standard axes
+  (\I{wght}, \I{slnt}, \I{wdth}, \I{ital}, \I{opsz}), in lowercase, otherwise (if a
+  custom axis) in uppercase.  Every argument value should be numeric.
 }
 \section{Warning}{
-  Any glyph with \code{NA} in any of \code{id}, \code{x}, \code{y}, or
-  \code{size} is silently dropped.
+  Any glyph with \code{NA} in any of \code{id}, \code{x}, \code{y}, 
+  \code{size} or \code{rot} is silently dropped.
 }

@@ -39,7 +39,7 @@ named classes.}
 \section{Initialize Methods}{
 The generic function \code{initialize} is not called directly.
 A call to \code{new} begins by copying the prototype object from
-  the class definition, and then calls \code{intialize()} with this
+  the class definition, and then calls \code{initialize()} with this
   object as the first argument, followed by the \dots{} arguments. 
 
   The interpretation of the \code{\dots} arguments in a call to a
@@ -79,10 +79,8 @@ you should include  \code{\dots} as a formal argument, and your method should pa
   concatenated into the resulting vector.
 }
 \references{
- Chambers, John M. (2016)
- \emph{Extending R},
-  Chapman & Hall.
-(Chapters 9 and 10.)
+  \bibshow{R:Chambers:2016}
+  (Chapters 9 and 10.)
 }
 \seealso{ \link{Classes_Details} for details of class definitions, and
   \code{\link{setOldClass}} for the relation to S3 classes. }

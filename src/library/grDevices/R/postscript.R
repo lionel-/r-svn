@@ -277,33 +277,11 @@ postscript <- function(file = if(onefile) "Rplots.ps" else "Rplot%03d.ps",
     invisible()
 }
 
-xfig <- function (file = if(onefile) "Rplots.fig" else "Rplot%03d.fig",
-                  onefile = FALSE, encoding = "none",
-                  paper = "default", horizontal = TRUE,
-                  width = 0, height = 0, family = "Helvetica",
-                  pointsize = 12, bg = "transparent", fg = "black",
-                  pagecentre = TRUE,
-                  defaultfont = FALSE, textspecial = FALSE)
-{
-    msg <- gettextf("'%s' is deprecated.\n", "xfig")
-    msg <- paste(msg, "Consider an SVG device instead.")
-    .Deprecated(msg = msg)
-
-    ## do initialization if needed
-    initPSandPDFfonts()
-
-    if(!checkIntFormat(file))
-        stop(gettextf("invalid 'file' argument '%s'", file), domain = NA)
-    .External(C_XFig, file, paper, family, bg, fg,
-              width, height, horizontal, pointsize,
-              onefile, pagecentre, defaultfont, textspecial, encoding)
-    invisible()
-}
-
 pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
                 width, height, onefile, family, title, fonts, version,
                 paper, encoding, bg, fg, pointsize, pagecentre, colormodel,
-                useDingbats, useKerning, fillOddEven, compress)
+                useDingbats, useKerning, fillOddEven, compress,
+                timestamp, producer, author)
 {
     ## do initialization if needed
     initPSandPDFfonts()
@@ -327,6 +305,9 @@ pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
     if(!missing(useKerning)) new$useKerning <- useKerning
     if(!missing(fillOddEven)) new$fillOddEven <- fillOddEven
     if(!missing(compress)) new$compress <- compress
+    if(!missing(timestamp)) new$timestamp <- timestamp
+    if(!missing(producer)) new$producer <- producer
+    if(!missing(author)) new$author <- author
 
     old <- check.options(new, name.opt = ".PDF.Options", envir = .PSenv)
 
@@ -378,7 +359,8 @@ pdf <- function(file = if(onefile) "Rplots.pdf" else "Rplot%03d.pdf",
               old$width, old$height, old$pointsize, onefile, old$pagecentre,
               old$title, old$fonts, version[1L], version[2L],
               old$colormodel, old$useDingbats, old$useKerning,
-              old$fillOddEven, old$compress)
+              old$fillOddEven, old$compress,
+              old$timestamp, old$producer, old$author)
     invisible()
 }
 
@@ -542,7 +524,7 @@ postscriptFonts <- function(...)
         fontNames <- names(fonts)
         nnames <- length(fontNames)
         if (nnames == 0L) {
-            if (!all(sapply(fonts, is.character)))
+            if (!all(vapply(fonts, is.character, NA)))
                 stop(gettextf("invalid arguments in '%s' (must be font names)",
                               "postscriptFonts"), domain = NA)
             else
@@ -596,7 +578,7 @@ pdfFonts <- function(...)
         fontNames <- names(fonts)
         nnames <- length(fontNames)
         if (nnames == 0L) {
-            if (!all(sapply(fonts, is.character)))
+            if (!all(vapply(fonts, is.character, NA)))
                 stop(gettextf("invalid arguments in '%s' (must be font names)",
                               "pdfFonts"), domain = NA)
             else
@@ -686,7 +668,10 @@ assign(".PDF.Options",
          useDingbats = FALSE,
          useKerning = TRUE,
          fillOddEven = FALSE,
-         compress = TRUE), envir = .PSenv)
+         compress = TRUE,
+         timestamp = TRUE,
+         producer = TRUE,
+         author = ""), envir = .PSenv)
 assign(".PDF.Options.default",
        get(".PDF.Options", envir = .PSenv),
        envir = .PSenv)
@@ -782,7 +767,7 @@ postscriptFonts(# Default Serif font is Times
                   c("n021003l.afm", "n021004l.afm",
                     "n021023l.afm", "n021024l.afm",
                     "s050000l.afm")),
-                ## URW 2.0 ewuivalents
+                ## URW 2.0 equivalents
                 URW2Helvetica = Type1Font("URW2Helvetica",
                   c("NimbusSans-Regular.afm", "NimbusSans-Bold.afm",
                     "NimbusSans-Oblique.afm", "NimbusSans-BoldOblique.afm",
@@ -985,7 +970,7 @@ embedFonts <- function(file, # The ps or pdf file to convert
         stop(gettextf("'%s' must be a non-empty character string", "file"),
              domain = NA)
     gsexe <- tools::find_gs_cmd()
-    if(!nzchar(gsexe)) stop("GhostScript was not found")
+    if(!nzchar(gsexe)) stop("Ghostscript was not found")
     if(.Platform$OS.type == "windows") gsexe <- shortPathName(gsexe)
     suffix <- gsub(".+[.]", "", file)
     if (missing(format))
@@ -1019,11 +1004,12 @@ embedFonts <- function(file, # The ps or pdf file to convert
 embedGlyphs <- function(file, glyphInfo, outfile = file,
                         options = character()) {
     if (!is.character(file) || length(file) != 1L || !nzchar(file))
-        stop("'file' must be a non-empty character string")
+        stop(gettextf("'%s' must be a non-empty character string", "file"),
+             domain = NA)
     infoList <- FALSE
     if (!inherits(glyphInfo, "RGlyphInfo")) {
         if (is.list(glyphInfo)) {
-            if (!all(sapply(glyphInfo, inherits, "RGlyphInfo"))) {
+            if (!all(vapply(glyphInfo, inherits, NA, "RGlyphInfo"))) {
                 stop("Invalid 'glyphInfo'")
             } else {
                 infoList <- TRUE
@@ -1031,7 +1017,7 @@ embedGlyphs <- function(file, glyphInfo, outfile = file,
         }
     }
     gsexe <- tools::find_gs_cmd()
-    if(!nzchar(gsexe)) stop("GhostScript was not found")
+    if(!nzchar(gsexe)) stop("Ghostscript was not found")
     if(.Platform$OS.type == "windows") gsexe <- shortPathName(gsexe)
     format <- "pdfwrite"
     check_gs_type(gsexe, format)

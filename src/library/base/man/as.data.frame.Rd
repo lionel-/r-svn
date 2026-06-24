@@ -1,6 +1,6 @@
 % File src/library/base/man/as.data.frame.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2024 R Core Team
+% Copyright 1995-2026 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.data.frame}
@@ -29,6 +29,7 @@ as.data.frame(x, row.names = NULL, optional = FALSE, \dots)
 
 \method{as.data.frame}{list}(x, row.names = NULL, optional = FALSE, \dots,
               cut.names = FALSE, col.names = names(x), fix.empty.names = TRUE,
+              new.names = !missing(col.names),
               check.names = !optional,
               stringsAsFactors = FALSE)
 
@@ -36,7 +37,7 @@ as.data.frame(x, row.names = NULL, optional = FALSE, \dots)
               make.names = TRUE, \dots,
               stringsAsFactors = FALSE)
 
-as.data.frame.vector(x, row.names = NULL, optional = FALSE, \dots,
+as.data.frame.vector(x, row.names = NULL, optional = FALSE, validRN = TRUE, \dots,
                      nm = deparse1(substitute(x)))
 
 is.data.frame(x)
@@ -62,6 +63,8 @@ is.data.frame(x)
   \item{col.names}{(optional) character vector of column names.}
   \item{fix.empty.names}{logical indicating if empty column names, i.e.,
     \code{""} should be fixed up (in \code{\link{data.frame}}) or not.}
+  \item{new.names}{logical indicating that \code{col.names} should be used
+    (and possibly reset to \code{NA}) explicitly.}
   \item{check.names}{logical; passed to the \code{\link{data.frame}()} call.}
   %% matrix method:
   \item{make.names}{a \code{\link{logical}}, i.e., one of \code{FALSE, NA, TRUE},
@@ -71,6 +74,11 @@ is.data.frame(x)
     \code{make.names=NA} will use \dQuote{automatic} row names and a
     \code{FALSE} value will signal an error for invalid row names.}
   %% *.vector():
+  \item{validRN}{a \code{\link{logical}} indicating if row names should be
+    checked to be valid; currently only checks if the row contain no
+    \code{\link{NA}}s.  This was implicitly \code{FALSE} in \R version
+    before 4.7.0.  Setting it to \code{FALSE} may still be necessary during
+    dataframe construction.}
   \item{nm}{a \code{\link{character}} string to be used as column name.}
 }
 \value{
@@ -121,14 +129,29 @@ is.data.frame(x)
   Names are removed from vector columns unless \code{\link{I}}.
 }
 \references{
-  Chambers, J. M. (1992)
-  \emph{Data for models.}
-  Chapter 3 of \emph{Statistical Models in S}
-  eds J. M. Chambers and T. J. Hastie, Wadsworth & Brooks/Cole.
+  \bibshow{R:Chambers:1992:c3}
 }
 \seealso{
-  \code{\link{data.frame}}, \code{\link{as.data.frame.table}} for the
-  \code{table} method (which has additional arguments if called directly).
+  \code{\link{data.frame}} and  \code{\link{make.names}};
+  \code{\link{as.data.frame.table}} for the \code{table} method (which has
+  additional arguments).
+}
+\examples{
+L0 <- list(LETTERS[1:7], c(4L, 2:3, 5:7, 1L))
+L <- L0; names(L) <- nms <- c("nam", "age")
+ d0 <- as.data.frame(L0, col.names = nms)
+(d1 <- as.data.frame(L))
+stopifnot(identical(d0, d1))
+
+## showing possibilities  on how NA names are handled:
+L <- list(A = 1:4); names(L) <- NA
+names(dL  <- as.data.frame(L))                                          # "NA."
+names(dL1 <- as.data.frame(L, col.names = names(L)))                    # "NA."
+##
+names(dL1.<- as.data.frame(L,                       check.names=FALSE)) # "NA"
+##
+names(dL2 <- as.data.frame(L, col.names = names(L), check.names=FALSE)) #  NA
+names(dLn <- as.data.frame(L, new.names = TRUE,     check.names=FALSE)) #  NA
 }
 \keyword{classes}
 \keyword{methods}

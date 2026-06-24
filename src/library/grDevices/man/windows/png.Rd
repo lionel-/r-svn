@@ -223,7 +223,7 @@ tiff(filename = "Rplot\%03d.tif",
 
   \code{\link{bitmap}} provides an alternative way to generate plots in many
   bitmap formats that does not depend on accessing the X11 display but does
-  depend on having \I{GhostScript} installed.
+  depend on having Ghostscript installed.
 
   Ways to write raster images to bitmap formats are available in
   packages \CRANpkg{jpeg}, \CRANpkg{png} and \CRANpkg{tiff}.
@@ -231,7 +231,7 @@ tiff(filename = "Rplot\%03d.tif",
 
 \section{Conventions}{
   This section describes the implementation of the conventions for
-  graphics devices set out in the \sQuote{R Internals} manual.
+  graphics devices set out in \manual{R-ints}{}.
 
   \itemize{
     \item The default device size is in pixels.

@@ -48,7 +48,7 @@ dev2bitmap(file, type = "png16m", height = 7, width = 7, res = 72,
 
   You will need \code{ghostscript}: the full path to the executable can
   be set by the environment variable \env{R_GSCMD}. If this is unset, a
-  \I{GhostScript} executable will be looked for by name on your path: on a
+  Ghostscript executable will be looked for by name on your path: on a
   Unix alike \code{"gs"} is used, and on Windows the setting of the
   environment variable \env{GSC} is used, otherwise commands
   \code{"gswi64c.exe"} then \code{"gswin32c.exe"} are tried.
@@ -109,7 +109,7 @@ dev2bitmap(file, type = "png16m", height = 7, width = 7, res = 72,
 
 \section{Conventions}{
   This section describes the implementation of the conventions for
-  graphics devices set out in the \sQuote{R Internals} manual.  These
+  graphics devices set out in \manual{R-ints}{}. These
   devices follow the underlying device, so when viewed at the stated
   \code{res}:
 

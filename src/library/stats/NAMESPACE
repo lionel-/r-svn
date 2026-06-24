@@ -6,7 +6,8 @@ importFrom(grDevices, as.graphicsAnnot, dev.cur, dev.flush, dev.hold,
            dev.interactive, dev.new, dev.set, devAskNewPage,
            extendrange, n2mfrow, palette, xy.coords)
 importFrom('utils',
-           count.fields, flush.console, modifyList, str, tail)
+           count.fields, flush.console, modifyList, str,
+           head, tail, .checkHT)
 
 export(.checkMFClasses, .getXlevels, .MFclass, .nknots.smspl,
        acf, acf2AR, add.scope,
@@ -59,6 +60,7 @@ export(.checkMFClasses, .getXlevels, .MFclass, .nknots.smspl,
        punif, pweibull, pwilcox, qbeta, qbinom, qcauchy, qchisq, qexp,
        qf, qgamma, qgeom, qhyper, qlnorm, qlogis, qnbinom, qnorm,
        qpois, qqline, qqnorm, qqplot, qsignrank, qt, qtukey, quantile,
+       qr.influence,
        quasi, quasibinomial, quasipoisson, qunif, qweibull, qwilcox,
        r2dtable, rbeta, rbinom, rcauchy, rchisq, read.ftable,
        rect.hclust, reformulate, relevel, reorder, replications,
@@ -105,6 +107,8 @@ export(aggregate.data.frame, median.default, model.matrix.default,
 ## residuals.lm: CADFest, robustbase
 ## update.default: MuMIn, spatstat
 
+## free1way
+export(free1way, power.free1way.test, ppplot, rfree1way)
 
 ## register all the methods for generics elsewhere in case namespace is
 ## loaded but not currently attached.
@@ -113,6 +117,7 @@ S3method("[", formula)
 S3method("[", terms)
 S3method("[", ts)
 S3method("[", tskernel)
+S3method("[", Pair)
 S3method("[<-", ts)
 S3method("[[", dendrogram)
 S3method(add1, default)
@@ -205,6 +210,9 @@ S3method(df.residual, default)
 S3method(df.residual, nls)
 S3method(dfbeta, lm)
 S3method(dfbetas, lm)
+S3method(dfbetas, glm)
+S3method(dffits, lm)
+S3method(dffits, glm)
 S3method(diff, ts)
 S3method(drop1, default)
 S3method(drop1, glm)
@@ -252,7 +260,9 @@ S3method(getInitial, default)
 S3method(getInitial, formula)
 S3method(getInitial, selfStart)
 S3method(hatvalues, lm)
+S3method(hatvalues, nls)
 S3method(hatvalues, smooth.spline)
+S3method(head, ts)
 S3method(identify, hclust)
 S3method(influence, glm)
 S3method(influence, lm)
@@ -495,6 +505,7 @@ S3method(str, logLik)
 S3method(t, ts)
 S3method(t.test, default)
 S3method(t.test, formula)
+S3method(tail, ts)
 S3method(terms, aovlist)
 S3method(terms, default)
 S3method(terms, formula)
@@ -533,6 +544,23 @@ S3method(wilcox.test, formula)
 S3method(window, default)
 S3method(window, ts)
 S3method("window<-", ts)
+
+## free1way
+S3method("free1way", "formula")
+S3method("free1way", "numeric")
+S3method("free1way", "factor")
+S3method("free1way", "table")
+S3method("coef", "free1way")
+S3method("vcov", "free1way")
+S3method("logLik", "free1way")
+S3method("confint", "free1way")
+S3method("summary", "free1way")
+S3method("terms", "free1way")
+S3method("plot", "free1way")
+S3method("model.frame", "free1way")
+S3method("model.matrix", "free1way")
+S3method("print", "free1way")
+S3method("print", "summary.free1way")
 
 ## Cannot register in utils ...
 S3method("update", "packageStatus")

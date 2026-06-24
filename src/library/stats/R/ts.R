@@ -1,7 +1,7 @@
 #  File src/library/stats/R/ts.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2023 The R Core Team
+#  Copyright (C) 1995-2026 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -86,8 +86,10 @@ ts <- function(data = NA, start = 1, end = numeric(), frequency = 1,
 		if(ndata < nobs) data[rep_len(1L:ndata, nobs), ]
 		else if(ndata > nobs) data[1L:nobs, ]
 	    }
-    ## FIXME: The following "attr<-"() calls C tspgets() which uses a
-    ##  	fixed equivalent of ts.eps := 1e-5
+    ## attr(data, "tsp") <- .. below calls C tspgets() which uses getOption("ts.eps"):
+    if(doEps <- !missing(ts.eps) && ts.eps != getOption("ts.eps")) {
+        op <- options(ts.eps = ts.eps); on.exit(options(op))
+    }
     attr(data, "tsp") <- c(start, end, frequency) #-- order is fixed
     if(!is.null(class) && class[[1]] != "none") attr(data, "class") <- class
     ## if you alter the return structure, you also need to alter
@@ -241,8 +243,13 @@ Ops.ts <- function(e1, e2)
                          c(deparse(substitute(e1))[1L],
                            deparse(substitute(e2))[1L]),
                          union = FALSE)
-        e1 <- if(is.matrix(e1)) e12[,        1L:nc1 , drop = FALSE] else e12[, 1]
-        e2 <- if(is.matrix(e2)) e12[, nc1 + (1L:nc2), drop = FALSE] else e12[, nc1 + 1]
+        if(is.null(e12)) { # typically if e1 or e2 is matrix but e1 & e2 are not overlapping
+            e1 <- if(is.matrix(e1)) e1[0L, , drop=FALSE] else e1[0L]
+            e2 <- if(is.matrix(e2)) e2[0L, , drop=FALSE] else e2[0L]
+        } else {
+            e1 <- if(is.matrix(e1)) e12[,        1L:nc1 , drop = FALSE] else e12[, 1L]
+            e2 <- if(is.matrix(e2)) e12[, nc1 + (1L:nc2), drop = FALSE] else e12[, nc1 + 1L]
+        }
         NextMethod(.Generic)
     }
 }
@@ -262,18 +269,11 @@ diff.ts <- function (x, lag = 1, differences = 1, ...)
 {
     if (lag < 1 || differences < 1)
         stop("bad value for 'lag' or 'differences'")
-    if (lag * differences >= NROW(x)) return(x[0L])
-    ## <FIXME>
-    ## lag() and its default method are defined in package ts, so we
-    ## need to provide our own implementation.
-    tsLag <- function(x, k = 1) {
-        p <- tsp(x)
-        tsp(x) <- p - (k/p[3L]) * c(1, 1, 0)
-        x
-    }
+    if (lag * differences >= NROW(x))
+        return(if(is.matrix(x)) x[0L, , drop = FALSE] else x[0L])
     r <- x
     for (i in 1L:differences) {
-        r <- r - tsLag(r, -lag)
+        r <- r - lag(r, -lag)
     }
     xtsp <- attr(x, "tsp")
     if(is.matrix(x)) colnames(r) <- colnames(x)
@@ -400,7 +400,7 @@ print.ts <- function(x, calendar, ...)
     invisible(x)
 }
 
-## To be used in a  format.ts():
+## used in print.ts(), and to be used in a (future / other pkg) format.ts()
 .preformat.ts <- function(x, calendar, ...)
 {
     fr.x <- frequency(x)
@@ -456,7 +456,7 @@ print.ts <- function(x, calendar, ...)
 		    paste(month.abb[t2], p1)
 		else
 		    paste(p1, if(fr.x == 4) c("Q1", "Q2", "Q3", "Q4")[t2]
-			  else format(t2))
+			      else format(t2))
 	    } else
 		format(time(x))
         attr(x, "class") <- attr(x, "tsp") <- attr(x, "na.action") <- NULL
@@ -824,8 +824,8 @@ arima.sim <- function(model, n, rand.gen = rnorm,
     }
     q <- length(model$ma)
     if(is.na(n.start)) n.start <- p + q +
-        ifelse(p > 0, ceiling(6/log(minroots)), 0)
-    if(n.start < p + q) stop("burn-in 'n.start' must be as long as 'ar + ma'")
+                           if(p > 0) ceiling(6/log(minroots)) else 0
+    else if(n.start < p + q) stop("burn-in 'n.start' must be as long as 'ar + ma'")
     d <- 0
     if(!is.null(ord <- model$order)) {
         if(length(ord) != 3L) stop("'model$order' must be of length 3")
@@ -849,4 +849,28 @@ arima.sim <- function(model, n, rand.gen = rnorm,
     if(n.start > 0) x <- x[-(seq_len(n.start))]
     if(d > 0) x <- diffinv(x, differences = d)
     as.ts(x)
+}
+
+
+## Originally from Spencer Graves, to R-devel@R-..., 9 Jun 2024 :
+head.ts <- function(x, n = 6L, ...) {
+   .checkHT(n, d <- dim(x))
+   tmx <- as.numeric(time(x))
+   firstn <- head(tmx, n[1L])
+   if(!is.null(d) && length(n) >= 2L) { # matrix
+       cols <- head(1:d[2], n[2L])
+       x <- x[, cols[1L]:tail(cols, 1L), drop=FALSE]
+   }
+   window(x, firstn[1L], tail(firstn, 1L))
+}
+
+tail.ts <- function (x, n = 6L, ...) {
+    .checkHT(n, d <- dim(x))
+    tmx <- as.numeric(time(x))
+    lastn <- tail(tmx, n[1L])
+    if(!is.null(d) && length(n) >= 2L) { # matrix
+        cols <- head(1:d[2], n[2L])
+        x <- x[, cols[1L]:tail(cols, 1L), drop=FALSE]
+    }
+    window(x, lastn[1L], tail(lastn, 1L))
 }

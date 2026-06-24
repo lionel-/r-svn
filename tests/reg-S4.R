@@ -146,7 +146,7 @@ stopifnot(identical(d2[-1,], d2[2:3,]))
 ## failed in R <= 2.1.x
 
 
-## Fritz' S4 "odditiy"
+## Fritz' S4 "oddity"
 setClass("X", representation(bar="numeric"))
 setClass("Y", contains="X")
 ## Now we define a generic foo() and two different methods for "X" and
@@ -877,3 +877,13 @@ body(cd@contains[["A"]]@coerce)[[2]] ## >>   value <- methods::new("A")
 setClass("foo", slots = c(y = "numeric"))
 setClass("bar", contains = "foo")
 body(getClass("bar")@contains[[1]]@coerce)[[2]]
+
+
+
+## ----- from here on, keep at EOF -----
+
+cat('Time elapsed: ', proc.time(),'\n')
+
+### NB: Only add new tests here _IF_   checking output,
+### --  otherwise use ./classes-methods.R
+###			^^^^^^^^^^^^^^^^^

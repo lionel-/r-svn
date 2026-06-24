@@ -1,7 +1,7 @@
 #  File src/library/tools/R/Vignettes.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2024 The R Core Team
+#  Copyright (C) 1995-2025 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -386,7 +386,7 @@ function(package, dir, subdirs = NULL, lib.loc = NULL, output = FALSE,
 
     # Locate all vignette files
     buildPkgs <- loadVignetteBuilder(dir, mustwork = FALSE, lib.loc = lib.loc)
-    engineList <- vignetteEngine(package = buildPkgs)
+    engineList <- vignetteEngine(package = buildPkgs) # could be character()
 
     docs <- names <- engines <- patterns <- character()
     allFiles <- list.files(docdir, all.files = FALSE, full.names = TRUE)
@@ -580,7 +580,7 @@ buildVignettes <-
         enc <- vigns$encodings[i]
         if (enc == "non-ASCII") {
             message(gettextf("Error: Vignette '%s' is non-ASCII but has no declared encoding",
-                             file))
+                             file), domain = NA)
             fails <- c(fails, file)
             next
         }
@@ -613,7 +613,7 @@ buildVignettes <-
             unlink(tf)
         } else {  # --- run in this process
             message(gettextf("--- re-building %s using %s",
-                             sQuote(file), engine$name))
+                             sQuote(file), engine$name), domain = NA)
             tryCatch({
                 engine$weave(file, quiet = quiet, encoding = enc)
                 setwd(startdir) # In case weave/vignette changed it
@@ -629,7 +629,7 @@ buildVignettes <-
                 thisOK <<- FALSE
                 fails <<- c(fails, file)
                 message(gettextf("Error: processing vignette '%s' failed with diagnostics:\n%s",
-                                 file, conditionMessage(e)))
+                                 file, conditionMessage(e)), domain = NA)
             })
         }         # end if (separate)
 
@@ -644,15 +644,17 @@ buildVignettes <-
                 thisOK <<- FALSE
                 fails <<- c(fails, file)
                 message(gettextf("Error: tangling vignette '%s' failed with diagnostics:\n%s",
-                     file, conditionMessage(e)))
+                                 file, conditionMessage(e)), domain = NA)
             })
             sourceList[[file]] <- output
         }
         if (!separate) {
             if (thisOK)
-                message(gettextf("--- finished re-building %s\n", sQuote(file)))
+                message(gettextf("--- finished re-building %s\n", sQuote(file)),
+                        domain = NA)
             else
-                message(gettextf("--- failed re-building %s\n", sQuote(file)))
+                message(gettextf("--- failed re-building %s\n", sQuote(file)),
+                        domain = NA)
         }
     } # end loop over vignettes
 
@@ -696,8 +698,9 @@ buildVignettes <-
     if (length(fails)) {
         message(ngettext(length(fails),
                          "SUMMARY: processing the following file failed:",
-                         "SUMMARY: processing the following files failed:"))
-        message(paste(.pretty_format(fails), collapse = "\n"))
+                         "SUMMARY: processing the following files failed:"),
+                domain = NA)
+        message(paste(.pretty_format(fails), collapse = "\n"), domain = NA)
         message()
     }
 
@@ -752,7 +755,8 @@ buildVignette <-
 		domain = NA)
 
     if (encoding == "non-ASCII")
-    	stop(gettextf("Vignette '%s' is non-ASCII but has no declared encoding", name))
+    	stop(gettextf("Vignette '%s' is non-ASCII but has no declared encoding", name),
+             domain = NA)
 
     # Set output directory temporarily
     file <- file_path_as_absolute(file)
@@ -821,7 +825,7 @@ buildVignette <-
     output <- character()
 
     message(gettextf("--- re-building %s using %s",
-                     sQuote(file), engine$name))
+                     sQuote(file), engine$name), domain = NA)
     tryCatch({
         engine$weave(file, quiet = quiet, encoding = enc)
         setwd(startdir)  # In case weave/vignette changed it
@@ -834,17 +838,19 @@ buildVignette <-
     }, error = function(e) {
         OK <<- FALSE
         message(gettextf("Error: processing vignette '%s' failed with diagnostics:\n%s",
-                         file, conditionMessage(e)))
+                         file, conditionMessage(e)), domain = NA)
     })
 
     if (OK)
-        message(gettextf("--- finished re-building %s\n", sQuote(file)))
+        message(gettextf("--- finished re-building %s\n", sQuote(file)),
+                domain = NA)
     else {
-        message(gettextf("--- failed re-building %s\n", sQuote(file)))
+        message(gettextf("--- failed re-building %s\n", sQuote(file)),
+                domain = NA)
         q("no", status = 9L)
     }
 
-    message("+-+", output)
+    message("+-+", output, domain = NA)
     invisible(output)
 }
 
@@ -1058,19 +1064,22 @@ function(x, ...)
 
 ### * .writeVignetteHtmlIndex
 
-## NB SamplerCompare has a .Rnw file which produces no R code.
 .writeVignetteHtmlIndex <-
 function(pkg, con, vignetteIndex = NULL)
 {
-    ## FIXME: in principle we could need to set an encoding here
-    html <- c(HTMLheader("Vignettes and other documentation"),
+    html <- c(HTMLheader("Vignettes and other documentation",
+                         up = "../html/00Index.html",
+                         css = "../html/R.css", # installed since R 2.13.0
+                         ## relative paths to 'top' and 'logo' will only work
+                         ## for the (site-)library in RHOME (or dynamic help)
+                         Rhome = "../../.."),
               paste0("<h2>Vignettes from package '", pkg,"'</h2>"),
               if(NROW(vignetteIndex) == 0L) ## NROW(NULL) = 0
                   "The package contains no vignette meta-information."
               else {
                   vignetteIndex <- cbind(Package = pkg,
                                          as.matrix(vignetteIndex[, c("File", "Title", "PDF", "R")]))
-                  makeVignetteTable(vignetteIndex, depth = 3L)
+                  makeVignetteTable(vignetteIndex, depth = NULL)
               })
     otherfiles <- list.files(system.file("doc", package = pkg))
     if(NROW(vignetteIndex))
@@ -1083,11 +1092,14 @@ function(pkg, con, vignetteIndex = NULL)
 	urls <- paste0('<a href="', otherfiles, '">', otherfiles, '</a>')
         html <- c(html, '<h2>Other files in the <span class="samp">doc</span> directory</h2>',
                   '<table style="width: 100%;">',
-		  '<col style="width: 24%;" />',
-		  '<col style="width: 50%;" />',
-		  '<col style="width: 24%;" />',
-                  paste0('<tr><td></td><td><span class="samp">',
-                         iconv(urls, "", "UTF-8"), "</span></td></tr>"),
+		  '<col style="width: 24%;">',
+		  '<col style="width: 50%;">',
+		  '<col style="width: 24%;">',
+                  paste0('<tr><td></td>',
+                         '<td><span class="samp">',
+                         iconv(urls, "", "UTF-8"),
+                         "</span></td>",
+                         "<td></td></tr>"),
                   "</table>")
     }
     html <- c(html, "</div></body></html>")
@@ -1187,6 +1199,7 @@ vignetteEngine <- local({
         key
     }
 
+    ## FIXME: return a character vector, not stop here.
     getEngine <- function(name, package) {
         if (missing(name)) {
             result <- as.list(registry)
@@ -1195,9 +1208,13 @@ vignetteEngine <- local({
                pkgs <- sapply(result, function(engine) engine$package)
                keep <- is.element(pkgs, package)
                if (!any(keep)) {
-                   stop(gettextf("None of packages %s have registered vignette engines",
-                                 paste(sQuote(package), collapse = ", ")),
-                        domain = NA)
+                   ## was stop() in R 4.4.0
+                   msg <-ngettext(length(package),
+                                  "Package %s does not have a registered vignette engine",
+                                  "None of packages %s have registered vignette engines")
+                   warning(sprintf(msg, paste(sQuote(package), collapse = ", ")),
+                           domain = NA, call. = FALSE)
+                   ## return character() below
                }
                result <- result[keep]
                pkgs <- pkgs[keep]
